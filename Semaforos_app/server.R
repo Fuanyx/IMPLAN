@@ -4,6 +4,10 @@ library(httr)
 library(jsonlite)
 library(dplyr)
 library(RPostgres)
+library(mapdeck)
+library(ggplot2)
+library(stringr)
+
 
 # API Key de HERE Maps (Reemplázala si es necesario)
 API_KEY <- "zMvsNweQ4jp7FKQIV4WCeIeaT0rWtbM1GPzofanYGLk"
@@ -40,6 +44,54 @@ coordenadas <- dbGetQuery(con, 'SELECT * FROM "99_Evaluaciones"."Trayectos_trasl
 coordenadas$distancia <- paste(coordenadas$distancia, "m")
 coordenadas <- coordenadas[,c(1:7,9,8)]
 
+
+datos <- read.csv("C:/Users/yamli/Documents/IMPLAN/Semaforos/Pruebas/puntos_interpolados2.csv")
+datos$"elevation" <- (datos$M.por.minuto - min(datos$M.por.minuto)) / (max(datos$M.por.minuto) - min(datos$M.por.minuto))
+datos$elevation <- datos$elevation * 100
+datos <- datos[,c(10,5,6,10)]
+datos$elevation <- "1. Av Kabah"
+colnames(datos) <- c("nombre","lat","lng","elevation")
+
+semaforos$elevation <- 150
+
+semaforos <- rbind(semaforos,datos)
+
+semaforos$color <- if_else(semaforos$elevation < 50, "yellow",
+                       if_else(semaforos$elevation < 80, "orange",
+                               if_else(semaforos$elevation < 101, "red", "blue")))
+
+#colnames(semaforos)
+
+# API Key de Mapbox
+key <- "pk.eyJ1IjoiZnVhbnl4IiwiYSI6ImNtOHJqajl0ZDBvdXEya3B1NDRqdGFrbWkifQ.WDEktBp9M8nUmdzf6BxdYg"
+
+### Fin de datos para el mapa nuevo ###
+
+
+### Datos de tarjetas visuales ###
+
+temp1  <- trayectos %>%
+  group_by(Principal,Tipo,Hora) %>%
+  mutate("Tiempo_total" = sum(`Tiempo promedio`)) %>%
+  ungroup()
+temp1$key <- paste(temp1$Principal, temp1$Hora, temp1$Tipo)
+temp1 <- temp1[!duplicated(temp1$key),]
+temp2  <- coordenadas %>%
+  group_by(Sobre) %>%
+  mutate("Distancia_total" = sum(as.numeric(str_split_fixed(distancia," ",2)[,1]))) %>%
+  ungroup()
+temp2 <- temp2[duplicated(temp2$Sobre),]
+temp1 <- temp1[,c(2,3,6,7)]
+temp2 <- temp2[,c(2,10)]
+colnames(temp2)[1] <- "Principal"
+temp2 <- temp2[!duplicated(temp2$Principal),]
+temp2$Principal <- gsub(" ","",temp2$Principal)
+tarjetas <- full_join(temp1,temp2)
+tarjetas$"Km/H" <- (tarjetas$Distancia_total/1000) / (tarjetas$Tiempo_total / 60)
+tarjetas$Distancia_total <- tarjetas$Distancia_total/1000
+tarjetas$Tiempo_total <- tarjetas$Tiempo_total / 60
+
+
 # Función para obtener el ETA desde HERE Maps
 obtener_eta <- function(origen, destino) {
   url <- paste0("https://router.hereapi.com/v8/routes?transportMode=car&origin=", origen, "&destination=", destino, "&return=summary&apikey=", API_KEY)
@@ -58,7 +110,13 @@ obtener_eta <- function(origen, destino) {
   return(NA)
 }
 
+
+gif_list <- c("Av kabah ida.gif", "kabah_vuelta.gif")  
+
 server <- function(input, output, session) {
+  
+  
+  
   
   semaforos_reactivos <- reactiveVal(semaforos)
   coordenadas_reactivas <- reactiveVal(coordenadas)
@@ -70,7 +128,15 @@ server <- function(input, output, session) {
   coordenadas_reactivas_ida <- reactiveVal(coordenadas_reactivas)
   coordenadas_reactivas_vuelta <- reactiveVal(coordenadas_reactivas)
   
-  grafico_actual <- reactiveVal("barras")
+  #grafico_actual <- reactiveVal("barras")
+  
+  
+  gif_ida <- reactiveVal(gif_list[1])
+  gif_vuelta <- reactiveVal(gif_list[2])
+  
+    #observeEvent(input[[paste0("gif", i)]], {
+    #  gif_actual(gif_list[i])  # Cambia el GIF mostrado
+    #})
   
   
   observeEvent(input$generar, {
@@ -90,6 +156,9 @@ server <- function(input, output, session) {
     coordenadas_reactivas(coordenadas_filtradas)
     ida_reactivas(ida_filtradas)
     vuelta_reactivas(vuelta_filtradas)
+    
+    gif_ida(gif_list[1])
+    gif_vuelta(gif_list[2])
   })
   
   observeEvent(input$mostrar_Xcaret, {
@@ -182,8 +251,25 @@ server <- function(input, output, session) {
       addTiles()
   })
   
+  #output$mapa <- renderMapdeck({
+  #  mapdeck(token = key, style = mapdeck_style("dark"),
+  #          pitch = 80, zoom = 14) %>%
+  #    add_column(
+  #      data = data,
+  #      lon = "lon",
+  #      lat = "lat",
+  #      elevation = "elevation",
+  #      fill_colour = "elevation",
+  #      radius = 20,
+  #      elevation_scale = 2,
+  #      layer_id = "column_layer",
+  #      tooltip = "elevation"
+  #    )
+  #})
+  
   observe({
     leafletProxy("mapa") %>%
+      clearShapes() %>%  # Limpia los círculos previos
       clearMarkers() %>%
       setView(lng = mean(semaforos_reactivos()$lng), 
               lat = mean(semaforos_reactivos()$lat), 
@@ -191,15 +277,20 @@ server <- function(input, output, session) {
       addCircleMarkers(
         data = semaforos_reactivos(),
         lat = ~lat, lng = ~lng,
-        color = "blue",
+        color = ~color,       # Usa la columna color dinámicamente
+        fillColor = ~color,   # También aplica el color al relleno
+        fillOpacity = 0.9,    # Ajusta la opacidad del círculo
+        radius = .05,           # Tamaño fijo en píxeles
         label = ~nombre
       )
-  }) 
+  })
+  
+  
   
   output$tabla_resultados <- renderTable({
     coordenadas_reactivas()[, c("De","a","distancia","Trayecto","Tiempo"), drop = FALSE]
   })
-  colnames(coordenadas)
+
   
   output$descargar <- downloadHandler(
     filename = function() { "ETA_Resultados.csv" },
@@ -207,26 +298,52 @@ server <- function(input, output, session) {
       write.csv(coordenadas_reactivas(), file, row.names = FALSE)
     })
   
-  observeEvent(input$btn1, { grafico_actual("barras") })
+#  observeEvent(input$btn1, { grafico_actual("barras") })
   
-  output$grafico1 <- renderPlot({
-    if (grafico_actual() == "barras") {
-      ggplot(ida_reactivas(), aes(x = Hora, y = `Tiempo promedio`, fill = reorder(De, ID))) +
-        geom_bar(stat = "identity") +
-        labs(title = "Tiempo en trayecto Ida",
-             x = "Hora", y = "Tiempo (minutos)", fill = "Av principal") +
-        theme_minimal()
-    } 
+#  output$grafico1 <- renderPlot({
+#    if (grafico_actual() == "barras") {
+#      ggplot(ida_reactivas(), aes(x = Hora, y = `Tiempo promedio`, fill = reorder(De, ID))) +
+#        geom_bar(stat = "identity") +
+#        labs(title = "Tiempo en trayecto Ida",
+#             x = "Hora", y = "Tiempo (minutos)", fill = "Av principal") +
+#        theme_minimal()
+#    } 
+#  })
+  
+#  output$grafico2 <- renderPlot({
+#    if (grafico_actual() == "barras") {
+#      ggplot(vuelta_reactivas(), aes(x = Hora, y = `Tiempo promedio`, fill = reorder(De, ID))) +
+#        geom_bar(stat = "identity") +
+#        labs(title = "Tiempo en trayecto Regreso",
+#             x = "Hora", y = "Tiempo (minutos)", fill = "Av principal") +
+#        theme_minimal()
+#    } 
+ # })
+  
+  
+  output$gif_mostrar_ida <- renderUI({
+    tags$img(src = gif_ida(), height = "400px")  # Muestra el GIF seleccionado
   })
   
-  output$grafico2 <- renderPlot({
-    if (grafico_actual() == "barras") {
-      ggplot(vuelta_reactivas(), aes(x = Hora, y = `Tiempo promedio`, fill = reorder(De, ID))) +
-        geom_bar(stat = "identity") +
-        labs(title = "Tiempo en trayecto Regreso",
-             x = "Hora", y = "Tiempo (minutos)", fill = "Av principal") +
-        theme_minimal()
-    } 
+  output$gif_mostrar_vuelta <- renderUI({
+    tags$img(src = gif_vuelta(), height = "400px")  # Muestra el GIF seleccionado
   })
+  
+  output$objetivo <- renderText({
+    paste(round(min(tarjetas$Tiempo_total, na.rm = TRUE), 2), "min")
+  })
+  
+  output$Tiempo <- renderText({
+    paste(round(sum(tarjetas$Tiempo_total, na.rm = TRUE), 2), "min")
+  })
+  
+  output$suma_distancia <- renderText({
+    paste(round(sum(tarjetas$Distancia_total, na.rm = TRUE), 2), "km")
+  })
+  
+  output$"Km/H" <- renderText({
+    paste(round(mean(tarjetas$`Km/H`, na.rm = TRUE), 2), "Km/H")
+  })
+  
   
 }
