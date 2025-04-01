@@ -43,7 +43,10 @@ vuelta$Tipo <- NULL
 coordenadas <- dbGetQuery(con, 'SELECT * FROM "99_Evaluaciones"."Trayectos_traslado_semaforos"')
 coordenadas$distancia <- paste(coordenadas$distancia, "m")
 coordenadas <- coordenadas[,c(1:7,9,8)]
+coordenadas$`Origen ` <- gsub(" ","",coordenadas$`Origen `)
+coordenadas$Destino <- gsub(" ","",coordenadas$Destino)
 
+#?gsub()
 
 datos <- read.csv("C:/Users/yamli/Documents/IMPLAN/Semaforos/Pruebas/puntos_interpolados2.csv")
 datos$"elevation" <- (datos$M.por.minuto - min(datos$M.por.minuto)) / (max(datos$M.por.minuto) - min(datos$M.por.minuto))
@@ -51,14 +54,16 @@ datos$elevation <- datos$elevation * 100
 datos <- datos[,c(10,5,6,10)]
 datos$elevation <- "1. Av Kabah"
 colnames(datos) <- c("nombre","lat","lng","elevation")
+datos$nombre <- gsub("1. Av Kabah","Av.Kabah",datos$nombre)
+unique(datos$nombre)
+#unique(coordenadas$Sobre)
+#datos$elevation <- 150
 
-semaforos$elevation <- 150
+#semaforos <- rbind(semaforos,datos)
 
-semaforos <- rbind(semaforos,datos)
-
-semaforos$color <- if_else(semaforos$elevation < 50, "yellow",
-                       if_else(semaforos$elevation < 80, "orange",
-                               if_else(semaforos$elevation < 101, "red", "blue")))
+datos$color <- if_else(datos$elevation < 50, "yellow",
+                       if_else(datos$elevation < 80, "orange",
+                               if_else(datos$elevation < 101, "red", "blue")))
 
 #colnames(semaforos)
 
@@ -90,11 +95,16 @@ tarjetas <- full_join(temp1,temp2)
 tarjetas$"Km/H" <- (tarjetas$Distancia_total/1000) / (tarjetas$Tiempo_total / 60)
 tarjetas$Distancia_total <- tarjetas$Distancia_total/1000
 tarjetas$Tiempo_total <- tarjetas$Tiempo_total / 60
+tarjetas$Principal <- gsub("Av.Kabah","Av.Kabah",tarjetas$Principal)
+tarjetas$Principal <- gsub("Av.AndresQuintanaRoo","Av. Andres Quintana Roo",tarjetas$Principal)
 
+
+#unique(coordenadas$Sobre)
 
 # Función para obtener el ETA desde HERE Maps
 obtener_eta <- function(origen, destino) {
   url <- paste0("https://router.hereapi.com/v8/routes?transportMode=car&origin=", origen, "&destination=", destino, "&return=summary&apikey=", API_KEY)
+  # <- paste0("https://router.hereapi.com/v8/routes?transportMode=car&origin=", df$`Origen `[1], "&destination=", df$Destino[1], "&return=summary&apikey=", API_KEY)
   
   respuesta <- GET(url)
   Sys.sleep(1) # Pequeña pausa para evitar bloqueo por la API
@@ -115,134 +125,79 @@ gif_list <- c("Av kabah ida.gif", "kabah_vuelta.gif")
 
 server <- function(input, output, session) {
   
+  # Variable reactiva para almacenar los datos calculados al presionar el botón
+  datos_actualizados <- reactiveVal(NULL)
   
+  # Filtrar datos al seleccionar la avenida
+  datos_filtrados <- reactive({
+    req(input$avenida)
+    list(
+      tarjetas = filter(tarjetas, Principal == input$avenida ),
+      datos = filter(datos, nombre == input$avenida),
+      coordenadas = filter(coordenadas, Sobre == input$avenida)
+    )
+  })
   
+  # Filtrar datos al seleccionar la ruta, pero sin calcular "Tiempo"
+  datos_sentido <- reactive({
+    req(input$ruta)
+    #df_tarjetas <- datos_filtrados()$
+    df_coordenadas <- datos_filtrados()$coordenadas  # Acceder a coordenadas de la lista
+    list(
+        df = filter(df_coordenadas, Trayecto == input$ruta)  # Retorna un dataframe, no lista
+    )
+  })
   
-  semaforos_reactivos <- reactiveVal(semaforos)
-  coordenadas_reactivas <- reactiveVal(coordenadas)
-  
-  ida_reactivas <- reactiveVal(ida)
-  vuelta_reactivas <- reactiveVal(vuelta)
-  
-  
-  coordenadas_reactivas_ida <- reactiveVal(coordenadas_reactivas)
-  coordenadas_reactivas_vuelta <- reactiveVal(coordenadas_reactivas)
-  
-  #grafico_actual <- reactiveVal("barras")
-  
-  
-  gif_ida <- reactiveVal(gif_list[1])
-  gif_vuelta <- reactiveVal(gif_list[2])
-  
-    #observeEvent(input[[paste0("gif", i)]], {
-    #  gif_actual(gif_list[i])  # Cambia el GIF mostrado
-    #})
-  
-  
+  # Mostrar tabla con datos filtrados o calculados
+  output$tabla_resultados <- renderTable({
+    df_filtrado <- datos_sentido()$df  
+    df_calculado <- datos_actualizados()
+    df <- if (!is.null(df_calculado)) df_calculado else df_filtrado 
+    if (nrow(df) == 0) return(NULL)
+    df[, c("De", "a", "distancia", "Trayecto", "Tiempo"), drop = FALSE]
+  })
+
+  # Evento que se activa solo cuando el usuario presiona el botón "Generar"
   observeEvent(input$generar, {
-    nuevas_rutas <- coordenadas_reactivas() %>% 
-      mutate("Tiempo" = mapply(obtener_eta, origen, destino))  
-    
-    coordenadas_reactivas(nuevas_rutas)  
+    df <- datos_sentido()$df
+    if (nrow(df) > 0) {
+      df <- df %>% 
+        mutate(Tiempo = mapply(obtener_eta, `Origen ` , Destino))
+      datos_actualizados(df)
+    }
   })
 
-  observeEvent(input$mostrar_Kabah, {
-    semaforos_filtrados <- filter(semaforos, nombre == "1. Av Kabah")
-    coordenadas_filtradas <- filter(coordenadas, Sobre == "Av.Kabah")
-    ida_filtradas <- filter(ida, Principal == "Av.Kabah")
-    vuelta_filtradas <- filter(vuelta, Principal == "Av.Kabah")
-    
-    semaforos_reactivos(semaforos_filtrados)
-    coordenadas_reactivas(coordenadas_filtradas)
-    ida_reactivas(ida_filtradas)
-    vuelta_reactivas(vuelta_filtradas)
-    
-    gif_ida(gif_list[1])
-    gif_vuelta(gif_list[2])
-  })
+  output$descargar <- downloadHandler(
+    filename = function() { "ETA_Resultados.csv" },
+    content = function(file) {
+      write.csv(datos_sentido()$df, file, row.names = FALSE)
+    })
   
-  observeEvent(input$mostrar_Xcaret, {
-    semaforos_filtrados <- filter(semaforos, nombre == "6. Av. Xcaret")
-    coordenadas_filtradas <- filter(coordenadas, Sobre == "Av. Xcaret")
-    semaforos_reactivos(semaforos_filtrados)
-    coordenadas_reactivas(coordenadas_filtradas)
-  })
-  
-  
-  observeEvent(input$mostrar_Quintana, {
-    semaforos_filtrados <- filter(semaforos, nombre == "5. Av. Andrés Quintana Roo")
-    coordenadas_filtradas <- filter(coordenadas, Sobre == "Av. Andres Quintana Roo")
-    ida_filtradas <- filter(ida, Principal == "Av. Andres Quintana Roo")
-    vuelta_filtradas <- filter(vuelta, Principal == "Av. Andres Quintana Roo")
-    semaforos_reactivos(semaforos_filtrados)
-    coordenadas_reactivas(coordenadas_filtradas)
-    ida_reactivas(ida_filtradas)
-    vuelta_reactivas(vuelta_filtradas)
-  })
-  
-  observeEvent(input$mostrar_Kukulcan, {
-    semaforos_filtrados <- filter(semaforos, nombre == "2. Bld. Kukulcan")
-    coordenadas_filtradas <- filter(coordenadas, Sobre == "2. Bld. Kukulcan")
-    semaforos_reactivos(semaforos_filtrados)
-    coordenadas_reactivas(coordenadas_filtradas)
-  })
-  observeEvent(input$mostrar_Portillo, {
-    semaforos_filtrados <- filter(semaforos, nombre == "3. Av. Lopez Portillo")
-    coordenadas_filtradas <- filter(coordenadas, Sobre == "Av. López Portillo")
-    semaforos_reactivos(semaforos_filtrados)
-    coordenadas_reactivas(coordenadas_filtradas)
-  })
-  
-  observeEvent(input$mostrar_Chac, {
-    semaforos_filtrados <- filter(semaforos, nombre == "10. Av. Chac Mool")
-    coordenadas_filtradas <- filter(coordenadas, Sobre == "Av. Chac Mool")
-    semaforos_reactivos(semaforos_filtrados)
-    coordenadas_reactivas(coordenadas_filtradas)
-  })
-  
-  observeEvent(input$mostrar_Bonampak, {
-    semaforos_filtrados <- filter(semaforos, nombre == "8. Av. Bonampak")
-    coordenadas_filtradas <- filter(coordenadas, Sobre == "Av. Bonampak")
-    semaforos_reactivos(semaforos_filtrados)
-    coordenadas_reactivas(coordenadas_filtradas)
-  })
-  
-  observeEvent(input$mostrar_Nichupte, {
-    semaforos_filtrados <- filter(semaforos, nombre == "4. Av. Nichupté")
-    coordenadas_filtradas <- filter(coordenadas, Sobre == "Av. Nichupté")
-    semaforos_reactivos(semaforos_filtrados)
-    coordenadas_reactivas(coordenadas_filtradas)
-  })
-  
-  observeEvent(input$mostrar_Tulum, {
-    semaforos_filtrados <- filter(semaforos, nombre == "9. Av. Tulum")
-    coordenadas_filtradas <- filter(coordenadas, Sobre == "Av. Tulum")
-    semaforos_reactivos(semaforos_filtrados)
-    coordenadas_reactivas(coordenadas_filtradas)
-  })
-  
-  
-  observeEvent(input$mostrar_Coba, {
-    semaforos_filtrados <- filter(semaforos, nombre == "7. Av. Cobá")
-    coordenadas_filtradas <- filter(coordenadas, Sobre == "Av. Cobá")
-    semaforos_reactivos(semaforos_filtrados)
-    coordenadas_reactivas(coordenadas_filtradas)
-  })
-  
-  observeEvent(input$mostrar_Ida, {
-    coordenadas_filtradas <- filter(coordenadas_reactivas(), Trayecto == "Ida")
-    coordenadas_reactivas(coordenadas_filtradas)
-  })
-  
-  observeEvent(input$mostrar_Regreso, {
-    coordenadas_filtradas <- filter(coordenadas_reactivas(), Trayecto == "Regreso")
-    coordenadas_reactivas(coordenadas_filtradas)
-  })
-
-  # Botón para mostrar todos
-  observeEvent(input$mostrar_Todos, {
-    semaforos_reactivos(semaforos)
-    coordenadas_reactivas(coordenadas)
+  observe({
+    leafletProxy("mapa") %>%
+      clearShapes() %>%
+      clearMarkers() %>%
+      setView(lng = mean(semaforos$lng), 
+              lat = mean(semaforos$lat), 
+              zoom = 13) %>%  
+      addCircleMarkers(
+        data = semaforos,
+        lat = ~lat, lng = ~lng,
+        color = "blue",
+        fillColor = "blue",
+        fillOpacity = 0.9,
+        radius = 5,  # Ajustado para mayor visibilidad
+        label = ~nombre
+      ) %>%
+      addCircleMarkers(
+        data = datos_filtrados()$datos,  # Segunda fuente de datos
+        lat = ~lat, lng = ~lng,
+        color = ~color,  # Otro color para diferenciar
+        fillColor = ~color,
+        fillOpacity = 0.7,
+        radius = 2
+        #label = ~descripcion
+      )
   })
   
   # Renderizar el mapa
@@ -251,99 +206,36 @@ server <- function(input, output, session) {
       addTiles()
   })
   
-  #output$mapa <- renderMapdeck({
-  #  mapdeck(token = key, style = mapdeck_style("dark"),
-  #          pitch = 80, zoom = 14) %>%
-  #    add_column(
-  #      data = data,
-  #      lon = "lon",
-  #      lat = "lat",
-  #      elevation = "elevation",
-  #      fill_colour = "elevation",
-  #      radius = 20,
-  #      elevation_scale = 2,
-  #      layer_id = "column_layer",
-  #      tooltip = "elevation"
-  #    )
-  #})
   
-  observe({
-    leafletProxy("mapa") %>%
-      clearShapes() %>%  # Limpia los círculos previos
-      clearMarkers() %>%
-      setView(lng = mean(semaforos_reactivos()$lng), 
-              lat = mean(semaforos_reactivos()$lat), 
-              zoom = 13) %>%  
-      addCircleMarkers(
-        data = semaforos_reactivos(),
-        lat = ~lat, lng = ~lng,
-        color = ~color,       # Usa la columna color dinámicamente
-        fillColor = ~color,   # También aplica el color al relleno
-        fillOpacity = 0.9,    # Ajusta la opacidad del círculo
-        radius = .05,           # Tamaño fijo en píxeles
-        label = ~nombre
-      )
-  })
-  
-  
-  
-  output$tabla_resultados <- renderTable({
-    coordenadas_reactivas()[, c("De","a","distancia","Trayecto","Tiempo"), drop = FALSE]
-  })
 
   
-  output$descargar <- downloadHandler(
-    filename = function() { "ETA_Resultados.csv" },
-    content = function(file) {
-      write.csv(coordenadas_reactivas(), file, row.names = FALSE)
-    })
-  
-#  observeEvent(input$btn1, { grafico_actual("barras") })
-  
-#  output$grafico1 <- renderPlot({
-#    if (grafico_actual() == "barras") {
-#      ggplot(ida_reactivas(), aes(x = Hora, y = `Tiempo promedio`, fill = reorder(De, ID))) +
-#        geom_bar(stat = "identity") +
-#        labs(title = "Tiempo en trayecto Ida",
-#             x = "Hora", y = "Tiempo (minutos)", fill = "Av principal") +
-#        theme_minimal()
-#    } 
-#  })
-  
-#  output$grafico2 <- renderPlot({
-#    if (grafico_actual() == "barras") {
-#      ggplot(vuelta_reactivas(), aes(x = Hora, y = `Tiempo promedio`, fill = reorder(De, ID))) +
-#        geom_bar(stat = "identity") +
-#        labs(title = "Tiempo en trayecto Regreso",
-#             x = "Hora", y = "Tiempo (minutos)", fill = "Av principal") +
-#        theme_minimal()
-#    } 
- # })
-  
+  gif_ida <- reactiveVal(gif_list[1])
+  gif_vuelta <- reactiveVal(gif_list[2])
   
   output$gif_mostrar_ida <- renderUI({
-    tags$img(src = gif_ida(), height = "400px")  # Muestra el GIF seleccionado
+    tags$img(src = gif_ida(), height = "300px")  # Muestra el GIF seleccionado
   })
   
   output$gif_mostrar_vuelta <- renderUI({
-    tags$img(src = gif_vuelta(), height = "400px")  # Muestra el GIF seleccionado
+    tags$img(src = gif_vuelta(), height = "300px")  # Muestra el GIF seleccionado
   })
   
   output$objetivo <- renderText({
-    paste(round(min(tarjetas$Tiempo_total, na.rm = TRUE), 2), "min")
+    paste(round(min(datos_filtrados()$tarjetas$Tiempo_total, na.rm = TRUE), 2), "min")
   })
   
   output$Tiempo <- renderText({
-    paste(round(sum(tarjetas$Tiempo_total, na.rm = TRUE), 2), "min")
+    paste(round(sum(datos_filtrados()$tarjetas$Tiempo_total, na.rm = TRUE), 2), "min")
   })
   
   output$suma_distancia <- renderText({
-    paste(round(sum(tarjetas$Distancia_total, na.rm = TRUE), 2), "km")
+    paste(round(sum(datos_filtrados()$tarjetas$Distancia_total, na.rm = TRUE), 2), "km")
   })
   
   output$"Km/H" <- renderText({
-    paste(round(mean(tarjetas$`Km/H`, na.rm = TRUE), 2), "Km/H")
+    paste(round(mean(datos_filtrados()$tarjetas$`Km/H`, na.rm = TRUE), 2), "Km/H")
   })
   
   
 }
+         

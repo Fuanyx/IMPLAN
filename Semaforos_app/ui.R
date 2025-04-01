@@ -7,74 +7,98 @@ ui <- fluidPage(
     column(3,  # Imagen alineada a la izquierda
            tags$img(src = "Logo IMPLAN.png", height = "80px", style = "display: block; margin: auto;")
     ),
-    column(7,  # Texto a la derecha de la imagen
+    column(5,  # Texto a la derecha de la imagen
            tags$h2("Seguimiento de tráfico:", style = "margin-left: 10px; display: inline-block;"),
            tags$h2("Ciudad de Cancún", style = "font-weight: bold; color: #4B4F54; display: inline-block; margin-left: 10px;")
-    )
+    ),
+    
+    column(2, wellPanel( # Opcional, solo para dar estilo a la selección
+      selectInput("avenida", "Elige una avenida:",
+                  choices = c("Av.Kabah", "Av. Andres Quintana Roo", "Av. López Portillo",
+                              "Av. Xcaret", "Av. Cobá", "Av. Bonampak",
+                              "Av. Chac Mool", "Av. Tulum", "Av. Nichupté")),
+    )),
+    
+    column(2, wellPanel( # Opcional, solo para dar estilo a la selección
+      selectInput("ruta", "Elige un sentido:",
+                  choices = c("Ida", "Regreso")),
+    )),
+    
   ),
   
   tags$head(
     tags$style(HTML("
-      #tabla_resultados table {
-        width: 100%;
-        border-collapse: collapse;
-        border-radius: 10px;
-        overflow: hidden;
-        box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
-      }
-      #tabla_resultados th {
-        background-color: #4B4F54;
-        color: white;
-        padding: 10px;
-        text-align: center;
-      }
-      #tabla_resultados td {
-        padding: 10px;
-        border-bottom: 1px solid #ccc;
-        text-align: center;
-      }
-      #tabla_resultados tr:nth-child(even) {
-        background-color: #f8f9fa;
-      }
-      #tabla_resultados tr:hover {
-        background-color: #d6d8db;
-      }
-    "))
+    /* Contenedor de la tabla */
+    #tabla_resultados {
+      width: 100%;
+      min-height: 1000px; /* Altura reservada */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Ocultar la tabla cuando no hay datos, pero reservando el espacio */
+    #tabla_resultados table:empty {
+      visibility: hidden;
+    }
+
+    /* Estilos generales */
+    #tabla_resultados table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.15);
+      min-height: 200px;
+    }
+
+    /* Encabezado */
+    #tabla_resultados th {
+      background-color: #4B4F54;
+      color: white;
+      padding: 12px;
+      text-align: center;
+      font-weight: bold;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+    }
+
+    /* Celdas */
+    #tabla_resultados td {
+      padding: 12px;
+      border-bottom: 1px solid #ccc;
+      text-align: center;
+    }
+
+    /* Filas pares */
+    #tabla_resultados tr:nth-child(even) {
+      background-color: #f1f3f5;
+    }
+
+    /* Filas impares */
+    #tabla_resultados tr:nth-child(odd) {
+      background-color: #ffffff;
+    }
+
+    /* Efecto hover */
+    #tabla_resultados tr:hover {
+      background-color: #e2e6ea;
+      transition: background-color 0.3s ease-in-out;
+    }
+  "))
   ),
-
-#)
-  #titlePanel("Mapa y Cálculo de Distancias"),
-  #dashboardBody(
-
- # )
-  # Primera fila de botones (toda la parte superior)
-  fluidRow(
-    column(12, 
-           #actionButton("mostrar_Kukulcan", "Av. Kukulcan"),
-           actionButton("mostrar_Portillo", "Av. Lopez Portillo"),
-           actionButton("mostrar_Kabah", "Av. Kabah"),
-           actionButton("mostrar_Chac", "Av. Chac Mool"),
-           actionButton("mostrar_Bonampak", "Av. Bonampak"),
-           actionButton("mostrar_Nichupte", "Av. Nichupté"),
-           actionButton("mostrar_Tulum", "Av. Tulum"),
-           actionButton("mostrar_Quintana", "Av. Andrés Quintana Roo"),
-           actionButton("mostrar_Xcaret", "Av. Xcaret"),
-           actionButton("mostrar_Coba", "Av. Cobá"),
-           actionButton("mostrar_Ida", "Trayectos de ida"),
-           actionButton("mostrar_Regreso", "Trayectos de regreso"),
-           actionButton("mostrar_Todos", "Mostrar Todos")#,
-
-    )
-  ),
+  
  
   tags$br(),
   # Distribución principal: Tabla (4 columnas) y Mapa (8 columnas)
+
   fluidRow(
-    column(4, 
+    div(class = "tabla-container",
+    column(4,
            tableOutput("tabla_resultados")
-    ),
-    #fluidRow(
-      # Tarjeta 1: Suma del Tiempo
+    )),
+    
     column(2, bs4Card(
       width = 8,
       
