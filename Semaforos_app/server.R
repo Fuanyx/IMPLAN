@@ -48,7 +48,7 @@ coordenadas$Destino <- gsub(" ","",coordenadas$Destino)
 
 #?gsub()
 
-datos <- read.csv("C:/Users/yamli/Documents/IMPLAN/Semaforos/Pruebas/puntos_interpolados2.csv")
+datos <- read.csv("./www/puntos_interpolados2.csv")
 datos$"elevation" <- (datos$M.por.minuto - min(datos$M.por.minuto)) / (max(datos$M.por.minuto) - min(datos$M.por.minuto))
 datos$elevation <- datos$elevation * 100
 datos <- datos[,c(10,5,6,10)]
