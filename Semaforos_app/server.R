@@ -48,18 +48,17 @@ coordenadas$Destino <- gsub(" ","",coordenadas$Destino)
 
 #?gsub()
 
-datos <- read.csv("./www/puntos_interpolados2.csv")
-datos$"elevation" <- (datos$M.por.minuto - min(datos$M.por.minuto)) / (max(datos$M.por.minuto) - min(datos$M.por.minuto))
-datos$elevation <- datos$elevation * 100
-datos <- datos[,c(10,5,6,10)]
-datos$elevation <- "1. Av Kabah"
-colnames(datos) <- c("nombre","lat","lng","elevation")
-datos$nombre <- gsub("1. Av Kabah","Av.Kabah",datos$nombre)
-unique(datos$nombre)
-#unique(coordenadas$Sobre)
-#datos$elevation <- 150
 
-#semaforos <- rbind(semaforos,datos)
+datos <- read.csv("./www/puntos_interpolados2.csv")
+datos$Tiempo <- as.numeric(datos$Tiempo)
+datos <- subset(datos, !is.na(datos$Tiempo))
+datos$"elevation" <- (datos$Tiempo - min(datos$Tiempo)) / (max(datos$Tiempo) - min(datos$Tiempo))
+datos$elevation <- datos$elevation * 100
+datos <- datos[,c(1,5,6,10,7,9)]
+colnames(datos) <- c("nombre","lat","lng","elevation","Hora","Trayecto")
+datos$nombre <- gsub("1. Av Kabah","Av.Kabah",datos$nombre)
+datos$Hora <- as.character(datos$Hora)
+
 
 datos$color <- if_else(datos$elevation < 50, "yellow",
                        if_else(datos$elevation < 80, "orange",
@@ -94,12 +93,12 @@ temp2$Principal <- gsub(" ","",temp2$Principal)
 tarjetas <- full_join(temp1,temp2)
 tarjetas$"Km/H" <- (tarjetas$Distancia_total/1000) / (tarjetas$Tiempo_total / 60)
 tarjetas$Distancia_total <- tarjetas$Distancia_total/1000
-tarjetas$Tiempo_total <- tarjetas$Tiempo_total / 60
+#tarjetas$Tiempo_total <- tarjetas$Tiempo_total / 60
 tarjetas$Principal <- gsub("Av.Kabah","Av.Kabah",tarjetas$Principal)
 tarjetas$Principal <- gsub("Av.AndresQuintanaRoo","Av. Andres Quintana Roo",tarjetas$Principal)
 
 
-#unique(coordenadas$Sobre)
+
 
 # Función para obtener el ETA desde HERE Maps
 obtener_eta <- function(origen, destino) {
@@ -129,11 +128,22 @@ server <- function(input, output, session) {
   datos_actualizados <- reactiveVal(NULL)
   
   # Filtrar datos al seleccionar la avenida
+  datos_hora <- reactive({
+    req(input$hora)
+    list(
+      datos = filter(datos, Hora == input$hora),
+      tarjetas = filter(tarjetas, Hora == input$hora )
+    )
+  })
+  
   datos_filtrados <- reactive({
     req(input$avenida)
+    df_datos <- datos_hora()$datos
+    df_tarjetas <- datos_hora()$tarjetas
+    
     list(
-      tarjetas = filter(tarjetas, Principal == input$avenida ),
-      datos = filter(datos, nombre == input$avenida),
+      df_tarjetas = filter(df_tarjetas, Principal == input$avenida ),
+      df_datos = filter(df_datos, nombre == input$avenida),
       coordenadas = filter(coordenadas, Sobre == input$avenida)
     )
   })
@@ -141,9 +151,11 @@ server <- function(input, output, session) {
   # Filtrar datos al seleccionar la ruta, pero sin calcular "Tiempo"
   datos_sentido <- reactive({
     req(input$ruta)
-    #df_tarjetas <- datos_filtrados()$
-    df_coordenadas <- datos_filtrados()$coordenadas  # Acceder a coordenadas de la lista
+
+    df_coordenadas <- datos_filtrados()$coordenadas
+    df_datos = datos_filtrados()$df_datos
     list(
+        df_datos = filter(df_datos, Trayecto == input$ruta),
         df = filter(df_coordenadas, Trayecto == input$ruta)  # Retorna un dataframe, no lista
     )
   })
@@ -190,7 +202,7 @@ server <- function(input, output, session) {
         label = ~nombre
       ) %>%
       addCircleMarkers(
-        data = datos_filtrados()$datos,  # Segunda fuente de datos
+        data = datos_sentido()$df_datos,  # Segunda fuente de datos
         lat = ~lat, lng = ~lng,
         color = ~color,  # Otro color para diferenciar
         fillColor = ~color,
@@ -221,21 +233,22 @@ server <- function(input, output, session) {
   })
   
   output$objetivo <- renderText({
-    paste(round(min(datos_filtrados()$tarjetas$Tiempo_total, na.rm = TRUE), 2), "min")
+    paste(round(min(datos_filtrados()$df_tarjetas$Tiempo_total, na.rm = TRUE), 2), "min")
   })
   
   output$Tiempo <- renderText({
-    paste(round(sum(datos_filtrados()$tarjetas$Tiempo_total, na.rm = TRUE), 2), "min")
+    paste(round(sum(datos_filtrados()$df_tarjetas$Tiempo_total, na.rm = TRUE), 2), "min")
   })
   
   output$suma_distancia <- renderText({
-    paste(round(sum(datos_filtrados()$tarjetas$Distancia_total, na.rm = TRUE), 2), "km")
+    paste(round(sum(datos_filtrados()$df_tarjetas$Distancia_total, na.rm = TRUE), 2), "km")
   })
   
   output$"Km/H" <- renderText({
-    paste(round(mean(datos_filtrados()$tarjetas$`Km/H`, na.rm = TRUE), 2), "Km/H")
+    paste(round(mean(datos_filtrados()$df_tarjetas$`Km/H`, na.rm = TRUE), 2), "Km/H")
   })
   
   
 }
+
          

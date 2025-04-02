@@ -7,7 +7,7 @@ ui <- fluidPage(
     column(3,  # Imagen alineada a la izquierda
            tags$img(src = "Logo IMPLAN.png", height = "80px", style = "display: block; margin: auto;")
     ),
-    column(5,  # Texto a la derecha de la imagen
+    column(4,  # Texto a la derecha de la imagen
            tags$h2("Seguimiento de tráfico:", style = "margin-left: 10px; display: inline-block;"),
            tags$h2("Ciudad de Cancún", style = "font-weight: bold; color: #4B4F54; display: inline-block; margin-left: 10px;")
     ),
@@ -23,6 +23,15 @@ ui <- fluidPage(
       selectInput("ruta", "Elige un sentido:",
                   choices = c("Ida", "Regreso")),
     )),
+    
+    column(1, wellPanel( # Opcional, solo para dar estilo a la selección
+      selectInput("hora", "Elige un sentido:",
+                  choices = c("0","1","2","3","4","5","6",
+                              "7","8","9","10","11","12","13",
+                              "14","15","16","17","18","19","20",
+                              "21","22","23")),
+    )),
+    
     
   ),
   
