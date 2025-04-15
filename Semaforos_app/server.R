@@ -27,10 +27,12 @@ semaforos <- semaforos[,c(2,4,5)]
 colnames(semaforos) <- c("nombre","lat","lng")
 semaforos <- subset(semaforos, semaforos$nombre != "2. Bld. Kukulcan")
 
+
+
+
 trayectos <- dbGetQuery(con, 'SELECT * FROM "99_Evaluaciones"."Tiempo_traslado_semaforos"')
 trayectos$key <- paste(trayectos$Principal, trayectos$De)
 trayectos$Hora <- as.numeric(trayectos$Hora)
-#trayectos$Hora <- as.character(trayectos$Hora)
 trayectos$Principal <- gsub(" ", "",trayectos$Principal)
 trayectos$De <- gsub(" ", "",trayectos$De)
 trayectos <- trayectos[,c(1,2,7,3,8,9)]
@@ -53,41 +55,19 @@ metrica <- read.csv("./www/Analisis calles.csv",encoding = "Latin1")
 colnames(metrica) <- c("Calle", "Trayecto", "Tiempo", "p1", "p2", "trafico", "Horas", "Km/H","Distancia")
 metrica$Distancia <- paste(metrica$Distancia, "km")
 metrica$trafico <- gsub("Poco trafico", "Objetivo", metrica$trafico)
-unique(metrica$Calle)
-#metrica$Calle<- gsub("Av. Cob�", "Av. Cobá", metrica$Calle)
-#metrica$Calle<- gsub("Av. L\xf3pez Portillo", "Av. López Portillo", metrica$Calle)
-#metrica$Calle<- gsub("Av. Nichupt\xe9", "Av. Nichupté", metrica$Calle)
-#metrica$Calle<- gsub("Av. Cob\xe1", "Av. Cobá", metrica$Calle)
 
-unique(metrica$Calle)
 
 datos <- read.csv("./www/puntos_interpolados2.csv")
-
 datos <- datos[,c(1,2,3,4,5,10,11,8,9)]
 colnames(datos) <- c("Sobre", "De", "a", "distancia", "Trayecto", "Hora", "Tiempo","Latitud", "Longitud")
-
-colnames(datos)
 datos$Tiempo <- as.numeric(datos$Tiempo)
 datos <- subset(datos, !is.na(datos$Tiempo))
 
 datos$distancia <- as.numeric(datos$distancia)
 datos$metrosminuto <- datos$distancia / datos$Tiempo
 
-#datos$"elevation" <- (datos$metrosminuto - min(datos$metrosminuto)) / (max(datos$metrosminuto) - min(datos$metrosminuto))
-#datos$"elevation" <- 100
-#datos$elevation <- datos$elevation * 100
 datos <- datos[,c("Sobre","Latitud","Longitud","metrosminuto","Hora","Trayecto","De")]
 colnames(datos) <- c("nombre","lat","lng","elevation","Hora","Trayecto","Secundaria")
-#datos$nombre <- "Todas"
-
-#datos$nombre <- "Todas"
-#unique(datos$nombre)
-
-#unique(datos$)
-
-#datos <- datos %>%
-#  group_by(nombre,Trayecto) %>%
-#  mutate(acum_Hora = rep(0:23, each = 1))
 
 datos <- datos %>%
   group_by(nombre, Trayecto, Secundaria) %>%
@@ -95,18 +75,8 @@ datos <- datos %>%
   mutate("p2" = quantile(`elevation`, probs = 0.66) ) %>%
   ungroup()
 
-#p1 <- quantile(datos$elevation, probs = 0.33)  # Primer tercil
-#p2 <- quantile(datos$elevation, probs = 0.66)  # Segundo tercil
-
 datos$color <- if_else(datos$elevation < datos$p1, "red",
                        if_else(datos$elevation < datos$p2, "orange", "yellow"))
-
-#                               if_else(datos$elevation < 101, "red", "blue")))
-#
-#tiempos$trafico <- if_else(tiempos$`Tiempo total` < tiempos$p1, "Sin trafico",
-#                           if_else(tiempos$`Tiempo total` < tiempos$p2, "Poco trafico", "Mucho trafico"))
-
-#colnames(semaforos)
 
 # API Key de Mapbox
 key <- "pk.eyJ1IjoiZnVhbnl4IiwiYSI6ImNtOHJqajl0ZDBvdXEya3B1NDRqdGFrbWkifQ.WDEktBp9M8nUmdzf6BxdYg"
@@ -115,7 +85,6 @@ key <- "pk.eyJ1IjoiZnVhbnl4IiwiYSI6ImNtOHJqajl0ZDBvdXEya3B1NDRqdGFrbWkifQ.WDEktB
 
 
 ### Datos de tarjetas visuales ###
-
 temp1  <- trayectos %>%
   group_by(Principal,Tipo,Hora) %>%
   mutate("Tiempo_total" = sum(`Tiempo promedio`)) %>%
@@ -145,8 +114,6 @@ tarjetas$Principal <- gsub("Av.AndresQuintanaRoo","Av. Andres Quintana Roo",tarj
 # Función para obtener el ETA desde HERE Maps
 obtener_eta <- function(origen, destino) {
   url <- paste0("https://router.hereapi.com/v8/routes?transportMode=car&origin=", origen, "&destination=", destino, "&return=summary&apikey=", API_KEY)
-  # <- paste0("https://router.hereapi.com/v8/routes?transportMode=car&origin=", df$`Origen `[1], "&destination=", df$Destino[1], "&return=summary&apikey=", API_KEY)
-  
   respuesta <- GET(url)
   Sys.sleep(1) # Pequeña pausa para evitar bloqueo por la API
   
@@ -164,7 +131,11 @@ obtener_eta <- function(origen, destino) {
 
 gif_list <- c("Av kabah ida.gif", "kabah_vuelta.gif")  
 
-trayecto_gif <- c("Ida.gif", "Regreso.gif")  
+#trayecto_gif <- c("Ida.gif", "Regreso.gif")  
+
+trayecto_gif <- c("Ida" = "Ida.gif", "Regreso" = "Regreso.gif")
+gif_trayecto <- reactiveVal(trayecto_gif[1])  # Valor inicial
+
 
 horas_unicas <- sort(unique(datos$Hora))  
 
@@ -216,6 +187,7 @@ server <- function(input, output, session) {
       df_datos = filter(df_datos, nombre == input$avenida),
       coordenadas = filter(coordenadas, Sobre == input$avenida),
       metrica = filter(metrica, Calle == input$avenida)
+                                                                                            
     )
   })
   
@@ -230,10 +202,32 @@ server <- function(input, output, session) {
     list(
         df_datos = filter(df_datos, Trayecto == input$ruta),
         df = filter(df_coordenadas, Trayecto == input$ruta),  # Retorna un dataframe, no lista
-        metrica = filter(metrica, Trayecto== input$ruta)
+        metrica = filter(metrica, Trayecto== input$ruta),
+        direccion = input$ruta 
         
     )
   })
+  
+  
+  
+  
+  observeEvent(input$ruta, {
+    req(input$ruta)
+    
+    # Verifica que el valor de input$ruta exista en los nombres del vector
+    if (input$ruta %in% names(trayecto_gif)) {
+      gif_trayecto(trayecto_gif[[input$ruta]])
+    }
+  })
+  
+  
+  
+  
+  
+  
+  
+  
+  
 
   # Mostrar tabla con datos filtrados o calculados
   output$tabla_resultados <- renderTable({
@@ -331,8 +325,12 @@ server <- function(input, output, session) {
     tags$img(src = gif_vuelta(), height = "350px")  # Muestra el GIF seleccionado
   })
   
-  
   gif_trayecto <- reactiveVal(trayecto_gif[1])
+  
+  
+  #output$gif_trayecto_mostrar <- renderUI({
+  #  list(src = file.path("www", gif_trayecto()), contentType = 'image/gif')
+  #}, deleteFile = FALSE)
   
   output$gif_trayecto_mostrar <- renderUI({
     tags$img(src = gif_trayecto(), height = "400px",)  # Muestra el GIF seleccionado

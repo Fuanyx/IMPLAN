@@ -4,10 +4,10 @@ library(bs4Dash)
 
 ui <- fluidPage(
   fluidRow(
-    column(3,  # Imagen alineada a la izquierda
+    column(3, 
            tags$img(src = "Logo IMPLAN.png", height = "80px", style = "display: block; margin: auto;")
     ),
-    column(4,  # Texto a la derecha de la imagen
+    column(4,
            tags$h2("Seguimiento de tráfico:", style = "margin-left: 10px; display: inline-block;"),
            tags$h2("Ciudad de Cancún", style = "font-weight: bold; color: #4B4F54; display: inline-block; margin-left: 10px;")
     ),
@@ -19,18 +19,10 @@ ui <- fluidPage(
                               "Av. Chac Mool", "Av. Tulum", "Av. Nichupté","Todas")),
     )),
     
-    column(2, wellPanel( # Opcional, solo para dar estilo a la selección
+    column(2, wellPanel(
       selectInput("ruta", "Elige un sentido:",
                   choices = c("Ida", "Regreso")),
     )),
-    
-    #column(1, wellPanel( # Opcional, solo para dar estilo a la selección
-    #  selectInput("hora", "Hora:",
-    #              choices = c("0","1","2","3","4","5","6",
-    #                          "7","8","9","10","11","12","13",
-    #                          "14","15","16","17","18","19","20",
-    #                          "21","22","23")),
-    #)),
     
     
   ),
@@ -251,10 +243,52 @@ ui <- fluidPage(
   ),
   
   
+  
+  
+
+  
+  
   fluidRow(
+    
+
+    
     column(4, uiOutput("gif_trayecto_mostrar")),
     column(8, leafletOutput("mapa",  width = "100%", height = "400px")),
   ),
+  
+  
+  
+  column(2, bs4Card(
+    width = 8,
+    
+    tags$div(
+      style = "font-weight: bold; font-size: 18px; display: flex; align-items: center;",
+      icon("clock", class = "fa-2x", style = "margin-right: 10px;"),
+      "Objetivo"
+    ),
+    
+    div(
+      style = "background-color: #D60057; color: white; border-radius: 15px; padding: 10px; 
+             text-align: center; font-size: 18px; font-weight: bold; margin-top: 8px;",
+      textOutput("objetivo")
+    )
+  )),
+  column(2, bs4Card(
+    width = 8,
+    
+    tags$div(
+      style = "font-weight: bold; font-size: 18px; display: flex; align-items: center;",
+      icon("clock", class = "fa-2x", style = "margin-right: 10px;"),
+      "Objetivo"
+    ),
+    
+    div(
+      style = "background-color: #D60057; color: white; border-radius: 15px; padding: 10px; 
+             text-align: center; font-size: 18px; font-weight: bold; margin-top: 8px;",
+      textOutput("objetivo")
+    )
+  )),
+  
 
 fluidRow(
   
