@@ -3,6 +3,30 @@ library(leaflet)
 library(bs4Dash)
 
 ui <- fluidPage(
+  
+  tags$head(
+    tags$style(HTML("
+    body {
+      background-image: url('www/Mapa.png');  /* Cambia por el nombre de tu imagen */
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    /* Capa para difuminado */
+    .blur-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      backdrop-filter: blur(6px); /* Ajusta la cantidad de difuminado */
+      z-index: -1; /* Envía al fondo */
+    }
+  "))
+  ),
+  
+  div(class = "blur-overlay"),
+  
   fluidRow(
     column(3, 
            tags$img(src = "Logo IMPLAN.png", height = "80px", style = "display: block; margin: auto;")
@@ -38,6 +62,10 @@ ui <- fluidPage(
   
   ,
   
+
+  
+  
+
   
   tags$head(
     tags$style(HTML("
@@ -105,29 +133,23 @@ ui <- fluidPage(
   
   tags$head(
     tags$style(HTML("
-    /* Contenedor de la tabla */
+    /* Contenedor principal para centrar la tabla */
     #tabla_metrica {
-      width: 100%;
-      min-height: 400px; /* Altura reservada */
       display: flex;
       justify-content: center;
       align-items: center;
+      min-height: 100px;
     }
 
-    /* Ocultar la tabla cuando no hay datos, pero reservando el espacio */
-    #tabla_metrica table:empty {
-      visibility: hidden;
-    }
-
-    /* Estilos generales */
+    /* Estilo de la tabla */
     #tabla_metrica table {
       width: 100%;
+      max-width: 600px;
       border-collapse: separate;
       border-spacing: 0;
       border-radius: 12px;
       overflow: hidden;
       box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.15);
-      min-height: 200px;
     }
 
     /* Encabezado */
@@ -137,8 +159,6 @@ ui <- fluidPage(
       padding: 12px;
       text-align: center;
       font-weight: bold;
-      border-top-left-radius: 12px;
-      border-top-right-radius: 12px;
     }
 
     /* Celdas */
@@ -148,12 +168,11 @@ ui <- fluidPage(
       text-align: center;
     }
 
-    /* Filas pares */
+    /* Filas pares e impares */
     #tabla_metrica tr:nth-child(even) {
       background-color: #f1f3f5;
     }
 
-    /* Filas impares */
     #tabla_metrica tr:nth-child(odd) {
       background-color: #ffffff;
     }
@@ -164,7 +183,8 @@ ui <- fluidPage(
       transition: background-color 0.3s ease-in-out;
     }
   "))
-  ),
+  )
+  ,
   
   
   
@@ -179,13 +199,13 @@ ui <- fluidPage(
       tags$div(
         style = "font-weight: bold; font-size: 18px; display: flex; align-items: center;",
         icon("clock", class = "fa-2x", style = "margin-right: 10px;"),
-        "Objetivo"
+        "Velocidad actual"
       ),
       
       div(
         style = "background-color: #D60057; color: white; border-radius: 15px; padding: 10px; 
              text-align: center; font-size: 18px; font-weight: bold; margin-top: 8px;",
-        textOutput("objetivo")
+        textOutput("km_best")
       )
     )),
       
@@ -196,13 +216,13 @@ ui <- fluidPage(
       tags$div(
         style = "font-weight: bold; font-size: 18px; display: flex; align-items: center;",
         icon("clock", class = "fa-2x", style = "margin-right: 10px;"),
-        "Tiempo"
+        "Tiempo actual"
       ),
       
       div(
         style = "background-color: #8BDC65; color: white; border-radius: 15px; padding: 10px; 
              text-align: center; font-size: 18px; font-weight: bold; margin-top: 8px;",
-        textOutput("Tiempo")
+        textOutput("Tiempo_best")
       )
     )),
       
@@ -219,7 +239,7 @@ ui <- fluidPage(
       div(
         style = "background-color: #00AFAA; color: white; border-radius: 15px; padding: 10px; 
              text-align: center; font-size: 18px; font-weight: bold; margin-top: 8px;",
-        textOutput("suma_distancia")
+        textOutput("distancia_best")
       )
     )),
     
@@ -229,13 +249,13 @@ ui <- fluidPage(
       tags$div(
         style = "font-weight: bold; font-size: 18px; display: flex; align-items: center;",
         icon("road", class = "fa-2x", style = "margin-right: 10px;"),
-        "Km / Hora"
+        "Variación"
       ),
       
       div(
         style = "background-color: #9A3CBB; color: white; border-radius: 15px; padding: 10px; 
              text-align: center; font-size: 18px; font-weight: bold; margin-top: 8px;",
-        textOutput("Km/H")
+        textOutput("variacion_tiempo")
       )
     )),
     tags$head(tags$style(".card-header { display: none !important; }"))
@@ -258,52 +278,47 @@ ui <- fluidPage(
   
   
   
-  column(2, bs4Card(
-    width = 8,
+  fluidRow(
+    fluidRow(
+    column(2, bs4Card(
+      width = 8,
+      div(
+        style = "background-color: #D60057; color: white; border-radius: 15px; padding: 10px; 
+             text-align: center; font-size: 18px; font-weight: bold; margin-top: 8px;",
+        textOutput("km_obj")
+      )
+    )),
     
-    tags$div(
-      style = "font-weight: bold; font-size: 18px; display: flex; align-items: center;",
-      icon("clock", class = "fa-2x", style = "margin-right: 10px;"),
-      "Objetivo"
+    column(2, bs4Card(
+      width = 8,
+      div(
+        style = "background-color: #D60057; color: white; border-radius: 15px; padding: 10px; 
+             text-align: center; font-size: 18px; font-weight: bold; margin-top: 8px;",
+        textOutput("Tiempo_obj")
+      )
+    )),
+    ),
+    column(4,
+           div(id = "tabla_metrica",
+               tableOutput("tabla_metrica")
+           )
     ),
     
-    div(
-      style = "background-color: #D60057; color: white; border-radius: 15px; padding: 10px; 
-             text-align: center; font-size: 18px; font-weight: bold; margin-top: 8px;",
-      textOutput("objetivo")
-    )
-  )),
-  column(2, bs4Card(
-    width = 8,
+    column(4, uiOutput("gif_mostrar_ida")),
+    column(4, uiOutput("gif_mostrar_vuelta")),
     
-    tags$div(
-      style = "font-weight: bold; font-size: 18px; display: flex; align-items: center;",
-      icon("clock", class = "fa-2x", style = "margin-right: 10px;"),
-      "Objetivo"
-    ),
+    # 🔽 Esto fuerza que lo siguiente se ponga debajo, no a la derecha
+    div(style = "clear: both;"),
     
-    div(
-      style = "background-color: #D60057; color: white; border-radius: 15px; padding: 10px; 
-             text-align: center; font-size: 18px; font-weight: bold; margin-top: 8px;",
-      textOutput("objetivo")
-    )
-  )),
-  
+    #fluidRow(
 
-fluidRow(
+    #)
+    #,
+    
+    column(1, actionButton("generar", "Calcular ETA")),
+    column(1, downloadButton("descargar", "Descargar Resultados"))
+    
+  )
   
-  div(class = "tabla-container",
-      column(4,
-             tableOutput("tabla_metrica")
-      )),
-  column(4, uiOutput("gif_mostrar_ida")),
-  column(4, uiOutput("gif_mostrar_vuelta")),
-  column(1, actionButton("generar", "Calcular ETA")),
-  column(1, downloadButton("descargar", "Descargar Resultados"))
-  
-),
-  
-
-
-
 )
+

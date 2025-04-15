@@ -51,13 +51,20 @@ coordenadas$Destino <- gsub(" ","",coordenadas$Destino)
 
 
 
-metrica <- read.csv("./www/Analisis calles.csv",encoding = "Latin1")
+metrica <- read.csv("G:/Github/IMPLAN/Semaforos_app/www/Analisis calles.csv",encoding = "Latin1")
 colnames(metrica) <- c("Calle", "Trayecto", "Tiempo", "p1", "p2", "trafico", "Horas", "Km/H","Distancia")
 metrica$Distancia <- paste(metrica$Distancia, "km")
 metrica$trafico <- gsub("Poco trafico", "Objetivo", metrica$trafico)
 
 
-datos <- read.csv("./www/puntos_interpolados2.csv")
+metrica2 <- subset(metrica, metrica$trafico == "Objetivo")
+metrica2$Vel_obj <- "60 km/h"
+metrica2$Tiempo_obj <- as.numeric(str_split_fixed(metrica2$Distancia," ",2)[,1] )
+metrica2$`Km/H` <- paste(round(metrica2$`Km/H`, 2),"km/h")
+
+
+
+datos <- read.csv("G:/Github/IMPLAN/Semaforos_app/www/puntos_interpolados2.csv")
 datos <- datos[,c(1,2,3,4,5,10,11,8,9)]
 colnames(datos) <- c("Sobre", "De", "a", "distancia", "Trayecto", "Hora", "Tiempo","Latitud", "Longitud")
 datos$Tiempo <- as.numeric(datos$Tiempo)
@@ -186,7 +193,9 @@ server <- function(input, output, session) {
       df_tarjetas = filter(df_tarjetas, Principal == input$avenida ),
       df_datos = filter(df_datos, nombre == input$avenida),
       coordenadas = filter(coordenadas, Sobre == input$avenida),
-      metrica = filter(metrica, Calle == input$avenida)
+      metrica = filter(metrica, Calle == input$avenida),
+      metrica2 = filter(metrica2, Calle == input$avenida)
+      
                                                                                             
     )
   })
@@ -198,11 +207,15 @@ server <- function(input, output, session) {
     df_coordenadas <- datos_filtrados()$coordenadas
     df_datos = datos_filtrados()$df_datos
     metrica = datos_filtrados()$metrica
+    metrica2 = datos_filtrados()$metrica2
+    
     
     list(
         df_datos = filter(df_datos, Trayecto == input$ruta),
         df = filter(df_coordenadas, Trayecto == input$ruta),  # Retorna un dataframe, no lista
         metrica = filter(metrica, Trayecto== input$ruta),
+        metrica2 = filter(metrica2, Trayecto== input$ruta),
+        
         direccion = input$ruta 
         
     )
@@ -221,13 +234,7 @@ server <- function(input, output, session) {
   })
   
   
-  
-  
-  
-  
-  
-  
-  
+
 
   # Mostrar tabla con datos filtrados o calculados
   output$tabla_resultados <- renderTable({
@@ -336,22 +343,52 @@ server <- function(input, output, session) {
     tags$img(src = gif_trayecto(), height = "400px",)  # Muestra el GIF seleccionado
   })
   
-  output$objetivo <- renderText({
-    paste(round(min(datos_filtrados()$df_tarjetas$Tiempo_total, na.rm = TRUE), 2), "min")
+  output$km_obj <- renderText({
+    datos_sentido()$metrica2$Vel_obj
   })
   
-  output$Tiempo <- renderText({
-    paste(round(sum(datos_filtrados()$df_tarjetas$Tiempo_total, na.rm = TRUE), 2), "min")
+  
+  output$Tiempo_obj <- renderText({
+    paste(datos_sentido()$metrica2$Tiempo_obj, "min")
   })
   
-  output$suma_distancia <- renderText({
-    paste(round(sum(datos_filtrados()$df_tarjetas$Distancia_total, na.rm = TRUE), 2), "km")
+  output$km_best <- renderText({
+    datos_sentido()$metrica2$`Km/H`
   })
   
-  output$"Km/H" <- renderText({ #hora_actual()
-    paste(round(mean(datos_filtrados()$df_tarjetas$`Km/H`, na.rm = TRUE), 2), "Km/H")
+  
+  output$Tiempo_best <- renderText({
+    paste(round(datos_sentido()$metrica2$Tiempo,2), "min")
   })
   
+  output$distancia_best <- renderText({
+    datos_sentido()$metrica2$Distancia
+  })
+  
+  
+  output$variacion_tiempo <- renderText({
+    paste(round(datos_sentido()$metrica2$Tiempo_obj - datos_sentido()$metrica2$Tiempo,2), "min")
+  })
+  
+  metrica2$Distancia
+ # output$objetivo <- renderText({
+#    paste(round(min(datos_filtrados()$df_tarjetas$Tiempo_total, na.rm = TRUE), 2), "min")
+#  })
+  
+#  output$Tiempo <- renderText({
+#    paste(round(sum(datos_filtrados()$df_tarjetas$Tiempo_total, na.rm = TRUE), 2), "min")
+#  })
+  
+#  output$suma_distancia <- renderText({
+#    paste(round(sum(datos_filtrados()$df_tarjetas$Distancia_total, na.rm = TRUE), 2), "km")
+#  })
+  
+#  output$"Km/H" <- renderText({ #hora_actual()
+#    paste(round(mean(datos_filtrados()$df_tarjetas$`Km/H`, na.rm = TRUE), 2), "Km/H")
+#  })
+  observe({
+    print(file.exists("www/Mapa.png"))  # Debería imprimir TRUE en la consola
+  })
 
 }
 
