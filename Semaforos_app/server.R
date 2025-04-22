@@ -48,23 +48,26 @@ coordenadas <- coordenadas[,c(1:7,9,8)]
 coordenadas$`Origen ` <- gsub(" ","",coordenadas$`Origen `)
 coordenadas$Destino <- gsub(" ","",coordenadas$Destino)
 
+#unique(metrica$Sobre)
 
-
-
-metrica <- read.csv("G:/Github/IMPLAN/Semaforos_app/www/Analisis calles.csv",encoding = "Latin1")
+metrica <- read.csv("./www/Analisis calles.csv",fileEncoding = "latin1")
 colnames(metrica) <- c("Calle", "Trayecto", "Tiempo", "p1", "p2", "trafico", "Horas", "Km/H","Distancia")
 metrica$Distancia <- paste(metrica$Distancia, "km")
-metrica$trafico <- gsub("Poco trafico", "Objetivo", metrica$trafico)
+metrica$trafico <- gsub("Poco trafico", "Fluido 🚗🚗", metrica$trafico)
+metrica$trafico <- gsub("Sin trafico", "Libre 🚗", metrica$trafico)
+metrica$trafico <- gsub("Mucho trafico", "Atascado 🚗🚗🚗", metrica$trafico)
 
+metrica <- metrica[order(metrica$trafico, decreasing = F),]
 
-metrica2 <- subset(metrica, metrica$trafico == "Objetivo")
+metrica2 <- subset(metrica, metrica$trafico == "Libre 🚗")
 metrica2$Vel_obj <- "60 km/h"
 metrica2$Tiempo_obj <- as.numeric(str_split_fixed(metrica2$Distancia," ",2)[,1] )
 metrica2$`Km/H` <- paste(round(metrica2$`Km/H`, 2),"km/h")
 
+# Baches
+baches <- read.csv("./www/baches.csv")
 
-
-datos <- read.csv("G:/Github/IMPLAN/Semaforos_app/www/puntos_interpolados2.csv")
+datos <- read.csv("./www/puntos_interpolados2.csv")
 datos <- datos[,c(1,2,3,4,5,10,11,8,9)]
 colnames(datos) <- c("Sobre", "De", "a", "distancia", "Trayecto", "Hora", "Tiempo","Latitud", "Longitud")
 datos$Tiempo <- as.numeric(datos$Tiempo)
@@ -84,6 +87,30 @@ datos <- datos %>%
 
 datos$color <- if_else(datos$elevation < datos$p1, "red",
                        if_else(datos$elevation < datos$p2, "orange", "yellow"))
+
+
+
+## Flechas de direccion
+library(readxl)
+flechas <- read_excel("./www/flechas.xlsx")
+colnames(flechas) <- c("nombre","lat","lng")
+#flechas$icono <- "icono_semaforo"
+
+flechas1 <- subset(flechas, flechas$nombre == "arriba")
+flechas3 <- subset(flechas, flechas$nombre == "abajo")
+
+flechas2 <- subset(flechas, flechas$nombre == "izquierda" )
+flechas4 <- subset(flechas, flechas$nombre == "derecha" )
+
+flechas1$ruta <- if_else(flechas1$nombre == "arriba", "Regreso", "Ida")
+flechas3$ruta <- if_else(flechas3$nombre == "abajo", "Ida", "Regreso")
+
+
+flechas2$ruta <- if_else(flechas2$nombre == "izquierda", "Regreso", "Ida")
+flechas4$ruta <- if_else(flechas4$nombre == "derecha", "Ida", "Regreso")
+
+
+
 
 # API Key de Mapbox
 key <- "pk.eyJ1IjoiZnVhbnl4IiwiYSI6ImNtOHJqajl0ZDBvdXEya3B1NDRqdGFrbWkifQ.WDEktBp9M8nUmdzf6BxdYg"
@@ -136,13 +163,22 @@ obtener_eta <- function(origen, destino) {
 }
 
 
-gif_list <- c("Av kabah ida.gif", "kabah_vuelta.gif")  
 
-#trayecto_gif <- c("Ida.gif", "Regreso.gif")  
+ida_gif <- c("Av.Kabah" = "kabah_ida.gif","Av. Andres Quintana Roo" = "andres_ida.gif", 
+             "Av. López Portillo" = "portillo_ida.gif", "Av. Xcaret" = "xcaret_ida.gif","Av. Cobá" = "coba_regreso.gif",
+             "Av. Chac Mool" = "chacmol_ida.gif", "Av. Tulum" = "tulum_ida.gif", "Av. Nichupté" = "nichupte_ida.gif")
+
+vuelta_gif <- c("Av.Kabah" = "kabah_regreso.gif","Av. Andres Quintana Roo" = "andres_regreso.gif",
+              "Av. López Portillo" = "portillo_regreso.gif","Av. Xcaret" = "xcaret_ida.gif", "Av. Cobá" = "coba_regreso.gif",
+              "Av. Chac Mool" = "chacmol_regreso.gif", "Av. Tulum" = "tulum_regreso.gif", "Av. Nichupté" = "nichupte_regreso.gif")
 
 trayecto_gif <- c("Ida" = "Ida.gif", "Regreso" = "Regreso.gif")
-gif_trayecto <- reactiveVal(trayecto_gif[1])  # Valor inicial
 
+
+gif_trayecto <- reactiveVal(trayecto_gif[1])
+
+gif_ida <- reactiveVal(ida_gif[1])
+gif_vuelta <- reactiveVal(vuelta_gif[1])
 
 horas_unicas <- sort(unique(datos$Hora))  
 
@@ -216,11 +252,43 @@ server <- function(input, output, session) {
         metrica = filter(metrica, Trayecto== input$ruta),
         metrica2 = filter(metrica2, Trayecto== input$ruta),
         
+        flechas1 = filter(flechas1, ruta == input$ruta),
+        flechas2 = filter(flechas2, ruta == input$ruta),
+        flechas3 = filter(flechas3, ruta == input$ruta),
+        flechas4 = filter(flechas4, ruta == input$ruta),
+        
         direccion = input$ruta 
         
     )
   })
   
+#  observeEvent(input$avenida, {
+#    if (input$avenida == "Av. Xcaret") {
+#      updateSelectInput(inputId = "ruta", selected = "Ida")
+#    } else if (input$avenida == "Av. Cobá") {
+#      updateSelectInput(inputId = "ruta", selected = "Regreso")
+#    } else {
+#      updateSelectInput(inputId = "ruta", selected = NULL)  # o dejar sin cambio
+#    }
+#  })
+  
+  
+  
+  observeEvent(input$avenida, {
+    if (input$avenida == "Av. Xcaret") {
+      updateSelectInput(inputId = "ruta",
+                        choices = c("Ida"),
+                        selected = "Ida")
+    } else if (input$avenida == "Av. Cobá") {
+      updateSelectInput(inputId = "ruta",
+                        choices = c("Regreso"),
+                        selected = "Regreso")
+    } else {
+      updateSelectInput(inputId = "ruta",
+                        choices = c("Ida", "Regreso"),
+                        selected = NULL)
+    }
+  })
   
   
   
@@ -233,6 +301,25 @@ server <- function(input, output, session) {
     }
   })
   
+  # Trayecto de Ida Gif
+  observeEvent(input$avenida, {
+    req(input$avenida)
+    
+    # Verifica que el valor de input$ruta exista en los nombres del vector
+    if (input$avenida %in% names(ida_gif)) {
+      gif_ida(ida_gif[[input$avenida]])
+    }
+  })
+  
+  # Trayecto de Regreso Gif
+  
+  observeEvent(input$avenida, {
+    req(input$avenida)
+    
+    if (input$avenida %in% names(vuelta_gif)) {
+      gif_vuelta(vuelta_gif[[input$avenida]])
+    }
+  })
   
 
 
@@ -275,11 +362,36 @@ server <- function(input, output, session) {
     iconWidth = 15, iconHeight = 15
   )
   
-  icono_carro <- makeIcon(
-    iconUrl = "https://cdn-icons-png.flaticon.com/512/741/741407.png",
-    iconWidth = 30, iconHeight = 30
+  icono_bache <- makeIcon(
+    iconUrl = "./www/bache.png",  # Cambia el ícono aquí
+    iconWidth = 20, iconHeight = 20
   )
   
+  
+  arriba <- makeIcon(
+    iconUrl = "./www/arriba.png",
+    iconWidth = 25, iconHeight = 25
+  )
+  
+  
+  abajo <- makeIcon(
+    iconUrl = "./www/abajo.png",
+    iconWidth = 25, iconHeight = 25
+  )
+  
+  izquierda <- makeIcon(
+    iconUrl = "./www/izquierda.png",
+    iconWidth = 25, iconHeight = 25
+  )
+  
+  derecha <- makeIcon(
+    iconUrl = "./www/derecha.png",
+    iconWidth = 25, iconHeight = 25
+  )
+  
+  
+  
+
   observe({
     # Definir el ícono
 
@@ -296,7 +408,33 @@ server <- function(input, output, session) {
           lat = ~lat, lng = ~lng,
           icon = icono_semaforo,
           label = ~nombre
+        ) %>%
+        addMarkers(
+          data = baches,
+          lng = ~lng, lat = ~lat,
+          icon = icono_bache
+        ) %>%
+        addMarkers(
+          data = datos_sentido()$flechas1,
+          lng = ~lng, lat = ~lat,
+          icon = arriba
+        ) %>%
+        addMarkers(
+          data = datos_sentido()$flechas3,
+          lng = ~lng, lat = ~lat,
+          icon = abajo
+        ) %>%
+        addMarkers(
+          data = datos_sentido()$flechas2,
+          lng = ~lng, lat = ~lat,
+          icon = izquierda
+        ) %>%
+        addMarkers(
+          data = datos_sentido()$flechas4,
+          lng = ~lng, lat = ~lat,
+          icon = derecha
         )
+      
       df_movimiento <- datos_sentido()$df_datos
           leafletProxy("mapa") %>%
           addCircleMarkers(
@@ -308,7 +446,6 @@ server <- function(input, output, session) {
             radius = 2,
           )
           
-          #session$sendCustomMessage('fadeMarkers', "movimiento")
           
     })
   
@@ -321,8 +458,8 @@ server <- function(input, output, session) {
   
 # ICONO DESCARGADO
   
-  gif_ida <- reactiveVal(gif_list[1])
-  gif_vuelta <- reactiveVal(gif_list[2])
+  #gif_ida <- reactiveVal(gif_list[1])
+  #gif_vuelta <- reactiveVal(gif_list[2])
   
   output$gif_mostrar_ida <- renderUI({
     tags$img(src = gif_ida(), height = "350px")  # Muestra el GIF seleccionado
@@ -332,12 +469,8 @@ server <- function(input, output, session) {
     tags$img(src = gif_vuelta(), height = "350px")  # Muestra el GIF seleccionado
   })
   
-  gif_trayecto <- reactiveVal(trayecto_gif[1])
+  #gif_trayecto <- reactiveVal(trayecto_gif[1])
   
-  
-  #output$gif_trayecto_mostrar <- renderUI({
-  #  list(src = file.path("www", gif_trayecto()), contentType = 'image/gif')
-  #}, deleteFile = FALSE)
   
   output$gif_trayecto_mostrar <- renderUI({
     tags$img(src = gif_trayecto(), height = "400px",)  # Muestra el GIF seleccionado
@@ -370,22 +503,7 @@ server <- function(input, output, session) {
     paste(round(datos_sentido()$metrica2$Tiempo_obj - datos_sentido()$metrica2$Tiempo,2), "min")
   })
   
-  metrica2$Distancia
- # output$objetivo <- renderText({
-#    paste(round(min(datos_filtrados()$df_tarjetas$Tiempo_total, na.rm = TRUE), 2), "min")
-#  })
-  
-#  output$Tiempo <- renderText({
-#    paste(round(sum(datos_filtrados()$df_tarjetas$Tiempo_total, na.rm = TRUE), 2), "min")
-#  })
-  
-#  output$suma_distancia <- renderText({
-#    paste(round(sum(datos_filtrados()$df_tarjetas$Distancia_total, na.rm = TRUE), 2), "km")
-#  })
-  
-#  output$"Km/H" <- renderText({ #hora_actual()
-#    paste(round(mean(datos_filtrados()$df_tarjetas$`Km/H`, na.rm = TRUE), 2), "Km/H")
-#  })
+
   observe({
     print(file.exists("www/Mapa.png"))  # Debería imprimir TRUE en la consola
   })

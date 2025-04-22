@@ -36,15 +36,22 @@ ui <- fluidPage(
            tags$h2("Ciudad de Cancún", style = "font-weight: bold; color: #4B4F54; display: inline-block; margin-left: 10px;")
     ),
     
-    column(2, wellPanel( 
-      selectInput("avenida", "Elige una avenida:",
-                  choices = c("Av.Kabah", "Av. Andres Quintana Roo", "Av. López Portillo",
-                              "Av. Xcaret", "Av. Cobá", "Av. Bonampak",
-                              "Av. Chac Mool", "Av. Tulum", "Av. Nichupté","Todas")),
-    )),
+    column(2, 
+           wellPanel(
+             style = "padding: 5px; margin-bottom: 5px;",
+             tags$label("Avenida", `for` = "avenida", style = "font-size: 12px; margin-bottom: 2px;"),
+             selectInput("avenida", NULL,
+                         choices = c("Av.Kabah", "Av. Andres Quintana Roo", "Av. López Portillo",
+                                     "Av. Xcaret", "Av. Cobá", #"Av. Bonampak",
+                                     "Av. Chac Mool", "Av. Tulum", "Av. Nichupté"),
+                         width = "100%")
+           )
+    ),
     
     column(2, wellPanel(
-      selectInput("ruta", "Elige un sentido:",
+      style = "padding: 5px; margin-bottom: 5px;",
+      tags$label("Sentido", `for` = "avenida", style = "font-size: 12px; margin-bottom: 2px;"),
+      selectInput("ruta", NULL,
                   choices = c("Ida", "Regreso")),
     )),
     
@@ -199,11 +206,11 @@ ui <- fluidPage(
       tags$div(
         style = "font-weight: bold; font-size: 18px; display: flex; align-items: center;",
         icon("clock", class = "fa-2x", style = "margin-right: 10px;"),
-        "Velocidad actual"
+        "Velocidad"
       ),
       
       div(
-        style = "background-color: #D60057; color: white; border-radius: 15px; padding: 10px; 
+        style = "background-color: #9A3CBB ; color: white; border-radius: 15px; padding: 10px; 
              text-align: center; font-size: 18px; font-weight: bold; margin-top: 8px;",
         textOutput("km_best")
       )
@@ -216,7 +223,7 @@ ui <- fluidPage(
       tags$div(
         style = "font-weight: bold; font-size: 18px; display: flex; align-items: center;",
         icon("clock", class = "fa-2x", style = "margin-right: 10px;"),
-        "Tiempo actual"
+        "En Camino"
       ),
       
       div(
@@ -233,7 +240,7 @@ ui <- fluidPage(
       tags$div(
         style = "font-weight: bold; font-size: 18px; display: flex; align-items: center;",
         icon("road", class = "fa-2x", style = "margin-right: 10px;"),
-        "Distancia"
+        "Recorrido"
       ),
       
       div(
@@ -249,11 +256,11 @@ ui <- fluidPage(
       tags$div(
         style = "font-weight: bold; font-size: 18px; display: flex; align-items: center;",
         icon("road", class = "fa-2x", style = "margin-right: 10px;"),
-        "Variación"
+        "Retraso"
       ),
       
       div(
-        style = "background-color: #9A3CBB; color: white; border-radius: 15px; padding: 10px; 
+        style = "background-color: #D60057; color: white; border-radius: 15px; padding: 10px; 
              text-align: center; font-size: 18px; font-weight: bold; margin-top: 8px;",
         textOutput("variacion_tiempo")
       )
@@ -261,7 +268,7 @@ ui <- fluidPage(
     tags$head(tags$style(".card-header { display: none !important; }"))
     
   ),
-  
+  br(),
   
   
   
@@ -272,53 +279,98 @@ ui <- fluidPage(
     
 
     
-    column(4, uiOutput("gif_trayecto_mostrar")),
-    column(8, leafletOutput("mapa",  width = "100%", height = "400px")),
-  ),
+    column(4, uiOutput("gif_trayecto_mostrar"),
+           
+           br(),
+           
+           column(6, bs4Card(
+             width = 8,
+             div(
+               style = "background-color: #00AFAA; color: white; border-radius: 10px; padding: 6px; 
+             text-align: center; font-size: 14px; font-weight: bold; margin-top: 8px; line-height: 1.2;",
+               HTML("<div style='font-size: 11px; font-weight: normal;'>Velocidad Ideal</div>"),
+               textOutput("km_obj")
+             )
+           )),
+           
+           #br(),
+           
+           column(6, bs4Card(
+             width = 8,
+             div(
+               style = "background-color: #00AFAA; color: white; border-radius: 10px; padding: 6px; 
+             text-align: center; font-size: 14px; font-weight: bold; margin-top: 8px; line-height: 1.2;",
+               HTML("<div style='font-size: 11px; font-weight: normal;'>Tiempo óptimo</div>"),
+               textOutput("Tiempo_obj")
+             )
+           )),
+           #br(),
+
+           
+           
+            column(12,
+                  div(id = "tabla_metrica",
+                      tableOutput("tabla_metrica")
+            )),
+           column(12,
+                  tags$h4("* Tiempo teórico de recorrido a velocidad reglamentaria en condiciones de flujo libre, sin interferencias vehiculares. *", style = "margin-left: 10px; display: inline-block;")
+           ),
+           ),
+    column(8,
+           leafletOutput("mapa", width = "100%", height = "400px"),
+           br(),
+           column(6, uiOutput("gif_mostrar_ida")),
+           br(),
+           column(6, uiOutput("gif_mostrar_vuelta"))
+    )
+    #column(8, leafletOutput("mapa",  width = "100%", height = "400px")),
+  )
   
   
-  
-  fluidRow(
-    fluidRow(
-    column(2, bs4Card(
-      width = 8,
-      div(
-        style = "background-color: #D60057; color: white; border-radius: 15px; padding: 10px; 
-             text-align: center; font-size: 18px; font-weight: bold; margin-top: 8px;",
-        textOutput("km_obj")
-      )
-    )),
-    
-    column(2, bs4Card(
-      width = 8,
-      div(
-        style = "background-color: #D60057; color: white; border-radius: 15px; padding: 10px; 
-             text-align: center; font-size: 18px; font-weight: bold; margin-top: 8px;",
-        textOutput("Tiempo_obj")
-      )
-    )),
-    ),
-    column(4,
-           div(id = "tabla_metrica",
-               tableOutput("tabla_metrica")
-           )
-    ),
-    
-    column(4, uiOutput("gif_mostrar_ida")),
-    column(4, uiOutput("gif_mostrar_vuelta")),
+  #br(),
+  #fluidRow(
+  #  fluidRow(
+  #    column(2, bs4Card(
+  #      width = 8,
+  #      div(
+  #        style = "background-color: #00AFAA; color: white; border-radius: 10px; padding: 6px; 
+  #           text-align: center; font-size: 14px; font-weight: bold; margin-top: 8px; line-height: 1.2;",
+  #        HTML("<div style='font-size: 11px; font-weight: normal;'>Velocidad Ideal</div>"),
+  #        textOutput("km_obj")
+  #      )
+  #    ))
+  #    ,
+  #    column(2, bs4Card(
+  #      width = 8,
+  #      div(
+  #        style = "background-color:#00AFAA; color: white; border-radius: 10px; padding: 6px; 
+  #           text-align: center; font-size: 14px; font-weight: bold; margin-top: 8px; line-height: 1.2;",
+  #        HTML("<div style='font-size: 11px; font-weight: normal;'>Tiempo Meta</div>"),
+  #        textOutput("Tiempo_obj")
+  #      )
+  #    )),
+  #  ),
+  #  br(),
+  #  column(4,
+  #         div(id = "tabla_metrica",
+  #             tableOutput("tabla_metrica")
+  #         )
+  #  ),
+  #  #div(style = "clear: both;"),
+    #column(4, uiOutput("gif_mostrar_ida")),
+    #column(4, uiOutput("gif_mostrar_vuelta")),
     
     # 🔽 Esto fuerza que lo siguiente se ponga debajo, no a la derecha
-    div(style = "clear: both;"),
+    #div(style = "clear: both;"),
     
     #fluidRow(
 
     #)
     #,
     
-    column(1, actionButton("generar", "Calcular ETA")),
-    column(1, downloadButton("descargar", "Descargar Resultados"))
+    #column(1, actionButton("generar", "Calcular ETA")),
+    #column(1, downloadButton("descargar", "Descargar Resultados"))
     
-  )
-  
 )
+  
 
