@@ -8,6 +8,7 @@ library(mapdeck)
 library(ggplot2)
 library(stringr)
 library(dplyr)
+library(readxl)
 
 # API Key de HERE Maps (Reemplázala si es necesario)
 API_KEY <- "zMvsNweQ4jp7FKQIV4WCeIeaT0rWtbM1GPzofanYGLk"
@@ -23,8 +24,9 @@ con <- dbConnect(
 )
 
 semaforos <- dbGetQuery(con, 'SELECT * FROM "99_Evaluaciones"."Coordenadas_Semaforos_Sistema"')
-semaforos <- semaforos[,c(2,4,5)]
-colnames(semaforos) <- c("nombre","lat","lng")
+semaforos$id <- str_split_fixed(semaforos$Calle," ",2)[,1]
+semaforos <- semaforos[,c(2,4,5,8)]
+colnames(semaforos) <- c("nombre","lat","lng","id")
 semaforos <- subset(semaforos, semaforos$nombre != "2. Bld. Kukulcan")
 
 
@@ -47,10 +49,11 @@ coordenadas$distancia <- paste(coordenadas$distancia, "m")
 coordenadas <- coordenadas[,c(1:7,9,8)]
 coordenadas$`Origen ` <- gsub(" ","",coordenadas$`Origen `)
 coordenadas$Destino <- gsub(" ","",coordenadas$Destino)
-
+colnames(coordenadas)[5] <- "origen"
+colnames(coordenadas)[6] <- "destino"
 #unique(metrica$Sobre)
 
-metrica <- read.csv("./www/Analisis calles.csv",fileEncoding = "latin1")
+metrica <- read.csv("C:/Users/Juan IMPLAN/Documents/GitHub/IMPLAN/Semaforos_app/www/Analisis calles.csv",fileEncoding = "latin1")
 colnames(metrica) <- c("Calle", "Trayecto", "Tiempo", "p1", "p2", "trafico", "Horas", "Km/H","Distancia")
 metrica$Distancia <- paste(metrica$Distancia, "km")
 metrica$trafico <- gsub("Poco trafico", "Fluido 🚗🚗", metrica$trafico)
@@ -65,9 +68,26 @@ metrica2$Tiempo_obj <- as.numeric(str_split_fixed(metrica2$Distancia," ",2)[,1] 
 metrica2$`Km/H` <- paste(round(metrica2$`Km/H`, 2),"km/h")
 
 # Baches
-baches <- read.csv("./www/baches.csv")
+baches <- read_excel("C:/Users/Juan IMPLAN/Documents/GitHub/IMPLAN/Semaforos_app/www/baches.xlsx")
+baches$latitud <- as.numeric(baches$latitud)
+baches$longitud <- as.numeric(baches$longitud)
+baches$label_html <- paste0(
+  "Likes: ", baches$Likes, "<br/>",
+  "Último reporte ", baches$fecha_reporte, "<br/>"
+)
 
-datos <- read.csv("./www/puntos_interpolados2.csv")
+
+# Baches
+choque <- read_excel("C:/Users/Juan IMPLAN/Documents/GitHub/IMPLAN/Semaforos_app/www/accidentes.xlsx")
+choque$latitud <- as.numeric(choque$latitud)
+choque$longitud <- as.numeric(choque$longitud)
+choque$label_html <- paste0(
+  "Likes: ", choque$Likes, "<br/>",
+  "Último reporte ", choque$fecha_reporte, "<br/>"
+)
+
+
+datos <- read.csv("C:/Users/Juan IMPLAN/Documents/GitHub/IMPLAN/Semaforos_app/www/puntos_interpolados2.csv")
 datos <- datos[,c(1,2,3,4,5,10,11,8,9)]
 colnames(datos) <- c("Sobre", "De", "a", "distancia", "Trayecto", "Hora", "Tiempo","Latitud", "Longitud")
 datos$Tiempo <- as.numeric(datos$Tiempo)
@@ -89,10 +109,17 @@ datos$color <- if_else(datos$elevation < datos$p1, "red",
                        if_else(datos$elevation < datos$p2, "orange", "yellow"))
 
 
+###
+
+#colores avenida
+colores <- datos
+colores$key <- paste0(colores$nombre," - " ,colores$Trayecto)
+colores <- colores[!duplicated(colores$key),]
+colores <- colores[,c(11,8,9)]
 
 ## Flechas de direccion
-library(readxl)
-flechas <- read_excel("./www/flechas.xlsx")
+
+flechas <- read_excel("C:/Users/Juan IMPLAN/Documents/GitHub/IMPLAN/Semaforos_app/www/flechas.xlsx")
 colnames(flechas) <- c("nombre","lat","lng")
 #flechas$icono <- "icono_semaforo"
 
@@ -164,6 +191,23 @@ obtener_eta <- function(origen, destino) {
 
 
 
+#rutas_inicial <- subset(coordenadas, coordenadas$Sobre == "Av.Kabah" & coordenadas$Trayecto == "Ida")
+#nuevas_rutas <- rutas_inicial %>% mutate("Tiempo" = mapply(obtener_eta, origen, destino))
+nuevas_rutas <- subset(coordenadas, coordenadas$Sobre == "Av.Kabah" & coordenadas$Trayecto == "Ida")
+nuevas_rutas$Tiempo <- 0
+nuevas_rutas$distancia <- str_split_fixed(nuevas_rutas$distancia," ",2)[,1]
+nuevas_rutas$Tiempo <- as.numeric(nuevas_rutas$Tiempo)
+nuevas_rutas$distancia <- as.numeric(nuevas_rutas$distancia)
+nuevas_rutas$elevation <-   nuevas_rutas$distancia / nuevas_rutas$Tiempo
+nuevas_rutas$key <-  paste0(nuevas_rutas$Sobre," - " ,nuevas_rutas$Trayecto)
+nuevas_rutas <- left_join(nuevas_rutas, colores)
+nuevas_rutas$color <- if_else(nuevas_rutas$elevation < nuevas_rutas$p1, "red",
+                              if_else(nuevas_rutas$elevation < nuevas_rutas$p2, "orange", "yellow"))
+nuevas_rutas$key <- paste0(nuevas_rutas$Sobre," - ", nuevas_rutas$De," - ", nuevas_rutas$Trayecto)
+nuevas_rutas <- nuevas_rutas[,c("key","color")]
+
+
+
 ida_gif <- c("Av.Kabah" = "kabah_ida.gif","Av. Andres Quintana Roo" = "andres_ida.gif", 
              "Av. López Portillo" = "portillo_ida.gif", "Av. Xcaret" = "xcaret_ida.gif","Av. Cobá" = "coba_regreso.gif",
              "Av. Chac Mool" = "chacmol_ida.gif", "Av. Tulum" = "tulum_ida.gif", "Av. Nichupté" = "nichupte_ida.gif")
@@ -196,17 +240,21 @@ server <- function(input, output, session) {
   # Estado reactivo para la hora actual
   hora_actual <- reactiveVal(horas_unicas[1])  # Iniciar con la primera hora
   
+  rutas_reactivas <- reactiveVal(nuevas_rutas)
+  print(rutas_reactivas)
+
+  
   # Cambiar la hora automáticamente
-  observeEvent(timer(), {
+  #observeEvent(timer(), {
     # Obtener el índice de la hora actual
-    idx <- match(hora_actual(), horas_unicas)
+  #  idx <- match(hora_actual(), horas_unicas)
     
     # Determinar la siguiente hora (cíclica)
-    nueva_hora <- if (idx == length(horas_unicas)) horas_unicas[1] else horas_unicas[idx + 1]
+  #  nueva_hora <- if (idx == length(horas_unicas)) horas_unicas[1] else horas_unicas[idx + 1]
     
     # Actualizar el valor reactivo
-    hora_actual(nueva_hora)
-  })
+  #  hora_actual(nueva_hora)
+  #})
   
   
   
@@ -262,16 +310,24 @@ server <- function(input, output, session) {
     )
   })
   
-#  observeEvent(input$avenida, {
-#    if (input$avenida == "Av. Xcaret") {
-#      updateSelectInput(inputId = "ruta", selected = "Ida")
-#    } else if (input$avenida == "Av. Cobá") {
-#      updateSelectInput(inputId = "ruta", selected = "Regreso")
-#    } else {
-#      updateSelectInput(inputId = "ruta", selected = NULL)  # o dejar sin cambio
-#    }
-#  })
   
+  
+  observeEvent(input$generar, {
+    
+    nuevas_rutas <- datos_sentido()$df %>% mutate("Tiempo" = mapply(obtener_eta, origen, destino))
+    nuevas_rutas$distancia <- str_split_fixed(nuevas_rutas$distancia," ",2)[,1]
+    nuevas_rutas$Tiempo <- as.numeric(nuevas_rutas$Tiempo)
+    nuevas_rutas$distancia <- as.numeric(nuevas_rutas$distancia)
+    nuevas_rutas$elevation <-   nuevas_rutas$distancia / nuevas_rutas$Tiempo
+    nuevas_rutas$key <-  paste0(nuevas_rutas$Sobre," - " ,nuevas_rutas$Trayecto)
+    nuevas_rutas <- left_join(nuevas_rutas, colores)
+    nuevas_rutas$color <- if_else(nuevas_rutas$elevation < nuevas_rutas$p1, "red",
+                                  if_else(nuevas_rutas$elevation < nuevas_rutas$p2, "orange", "yellow"))
+    nuevas_rutas$key <- paste0(nuevas_rutas$Sobre," - ", nuevas_rutas$De," - ", nuevas_rutas$Trayecto)
+    nuevas_rutas <- nuevas_rutas[,c("key","color")]
+    rutas_reactivas(nuevas_rutas)
+    
+  })
   
   
   observeEvent(input$avenida, {
@@ -346,7 +402,7 @@ server <- function(input, output, session) {
     df <- datos_sentido()$df
     if (nrow(df) > 0) {
       df <- df %>% 
-        mutate(Tiempo = mapply(obtener_eta, `Origen ` , Destino))
+        mutate(Tiempo = mapply(obtener_eta, origen , destino))
       datos_actualizados(df)
     }
   })
@@ -389,7 +445,10 @@ server <- function(input, output, session) {
     iconWidth = 25, iconHeight = 25
   )
   
-  
+  accidente <- makeIcon(
+    iconUrl = "./www/choque.png",
+    iconWidth = 25, iconHeight = 25
+  )
   
 
   observe({
@@ -397,6 +456,7 @@ server <- function(input, output, session) {
 
     
       req(datos_sentido()$df_datos) 
+    
       leafletProxy("mapa") %>%
         clearShapes() %>%
         clearMarkers() %>%
@@ -407,13 +467,21 @@ server <- function(input, output, session) {
           data = semaforos,
           lat = ~lat, lng = ~lng,
           icon = icono_semaforo,
-          label = ~nombre
+          label = ~id
         ) %>%
         addMarkers(
           data = baches,
-          lng = ~lng, lat = ~lat,
-          icon = icono_bache
+          lng = ~longitud, lat = ~latitud,
+          icon = icono_bache,
+          label = lapply(baches$label_html, HTML)
         ) %>%
+        addMarkers(
+          data = choque,
+          lng = ~longitud, lat = ~latitud,
+          icon = accidente,
+          label = lapply(choque$label_html, HTML)
+        ) %>%
+
         addMarkers(
           data = datos_sentido()$flechas1,
           lng = ~lng, lat = ~lat,
@@ -436,6 +504,10 @@ server <- function(input, output, session) {
         )
       
       df_movimiento <- datos_sentido()$df_datos
+      df_movimiento$key <- paste0(df_movimiento$nombre," - ", df_movimiento$Secundaria, " - ",df_movimiento$Trayecto) 
+      df_movimiento$color <- NULL
+      df_movimiento <- left_join(df_movimiento, rutas_reactivas())
+
           leafletProxy("mapa") %>%
           addCircleMarkers(
             lat = df_movimiento$lat,
@@ -510,5 +582,3 @@ server <- function(input, output, session) {
 
 }
 
-
-         

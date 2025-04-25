@@ -315,6 +315,9 @@ ui <- fluidPage(
            column(12,
                   tags$h4("* Tiempo teórico de recorrido a velocidad reglamentaria en condiciones de flujo libre, sin interferencias vehiculares. *", style = "margin-left: 10px; display: inline-block;")
            ),
+           column(5,  # Ocupa 4 de 12 columnas disponibles
+                  actionButton("generar", "Calcular ETA"),
+           ),
            ),
     column(8,
            leafletOutput("mapa", width = "100%", height = "400px"),
