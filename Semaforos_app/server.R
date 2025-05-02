@@ -53,7 +53,7 @@ colnames(coordenadas)[5] <- "origen"
 colnames(coordenadas)[6] <- "destino"
 #unique(metrica$Sobre)
 
-metrica <- read.csv("C:/Users/Juan IMPLAN/Documents/GitHub/IMPLAN/Semaforos_app/www/Analisis calles.csv",fileEncoding = "latin1")
+metrica <- read.csv("./www/Analisis calles.csv",fileEncoding = "latin1")
 colnames(metrica) <- c("Calle", "Trayecto", "Tiempo", "p1", "p2", "trafico", "Horas", "Km/H","Distancia")
 metrica$Distancia <- paste(metrica$Distancia, "km")
 metrica$trafico <- gsub("Poco trafico", "Fluido 🚗🚗", metrica$trafico)
@@ -68,7 +68,7 @@ metrica2$Tiempo_obj <- as.numeric(str_split_fixed(metrica2$Distancia," ",2)[,1] 
 metrica2$`Km/H` <- paste(round(metrica2$`Km/H`, 2),"km/h")
 
 # Baches
-baches <- read_excel("C:/Users/Juan IMPLAN/Documents/GitHub/IMPLAN/Semaforos_app/www/baches.xlsx")
+baches <- read_excel("./www/baches.xlsx")
 baches$latitud <- as.numeric(baches$latitud)
 baches$longitud <- as.numeric(baches$longitud)
 baches$label_html <- paste0(
@@ -78,7 +78,7 @@ baches$label_html <- paste0(
 
 
 # Baches
-choque <- read_excel("C:/Users/Juan IMPLAN/Documents/GitHub/IMPLAN/Semaforos_app/www/accidentes.xlsx")
+choque <- read_excel("./www/accidentes.xlsx")
 choque$latitud <- as.numeric(choque$latitud)
 choque$longitud <- as.numeric(choque$longitud)
 choque$label_html <- paste0(
@@ -87,7 +87,7 @@ choque$label_html <- paste0(
 )
 
 
-datos <- read.csv("C:/Users/Juan IMPLAN/Documents/GitHub/IMPLAN/Semaforos_app/www/puntos_interpolados2.csv")
+datos <- read.csv("./www/puntos_interpolados2.csv")
 datos <- datos[,c(1,2,3,4,5,10,11,8,9)]
 colnames(datos) <- c("Sobre", "De", "a", "distancia", "Trayecto", "Hora", "Tiempo","Latitud", "Longitud")
 datos$Tiempo <- as.numeric(datos$Tiempo)
@@ -119,7 +119,7 @@ colores <- colores[,c(11,8,9)]
 
 ## Flechas de direccion
 
-flechas <- read_excel("C:/Users/Juan IMPLAN/Documents/GitHub/IMPLAN/Semaforos_app/www/flechas.xlsx")
+flechas <- read_excel("./www/flechas.xlsx")
 colnames(flechas) <- c("nombre","lat","lng")
 #flechas$icono <- "icono_semaforo"
 
@@ -212,6 +212,10 @@ ida_gif <- c("Av.Kabah" = "kabah_ida.gif","Av. Andres Quintana Roo" = "andres_id
              "Av. López Portillo" = "portillo_ida.gif", "Av. Xcaret" = "xcaret_ida.gif","Av. Cobá" = "coba_regreso.gif",
              "Av. Chac Mool" = "chacmol_ida.gif", "Av. Tulum" = "tulum_ida.gif", "Av. Nichupté" = "nichupte_ida.gif")
 
+ida_png <- c("Av.Kabah" = "kabah_ida.png")#,"Av. Andres Quintana Roo" = "andres_ida.gif", 
+             #"Av. López Portillo" = "portillo_ida.gif", "Av. Xcaret" = "xcaret_ida.gif","Av. Cobá" = "coba_regreso.gif",
+             #"Av. Chac Mool" = "chacmol_ida.gif", "Av. Tulum" = "tulum_ida.gif", "Av. Nichupté" = "nichupte_ida.gif")
+
 vuelta_gif <- c("Av.Kabah" = "kabah_regreso.gif","Av. Andres Quintana Roo" = "andres_regreso.gif",
               "Av. López Portillo" = "portillo_regreso.gif","Av. Xcaret" = "xcaret_ida.gif", "Av. Cobá" = "coba_regreso.gif",
               "Av. Chac Mool" = "chacmol_regreso.gif", "Av. Tulum" = "tulum_regreso.gif", "Av. Nichupté" = "nichupte_regreso.gif")
@@ -223,6 +227,8 @@ gif_trayecto <- reactiveVal(trayecto_gif[1])
 
 gif_ida <- reactiveVal(ida_gif[1])
 gif_vuelta <- reactiveVal(vuelta_gif[1])
+
+png_ida <- reactiveVal(ida_png[1])
 
 horas_unicas <- sort(unique(datos$Hora))  
 
@@ -357,15 +363,62 @@ server <- function(input, output, session) {
     }
   })
   
-  # Trayecto de Ida Gif
-  observeEvent(input$avenida, {
+  
+#  output$gif_mostrar_ida <- renderUI({
+#    req(input$avenida)
+#    
+#    if (input$avenida %in% names(ida_gif)) {
+#      
+#      if (input$pausar_gif_ida) {
+#        tags$img(src = paste0("www/", ida_png[[input$avenida]]), width = "100%")
+#      } else {
+#        gif_ida(ida_gif[[input$avenida]])
+#      }
+#    }
+#  })
+  
+  
+  # Variable reactiva para almacenar el src de la imagen que se debe mostrar
+  imagen_ida <- reactiveVal(ida_gif[1])
+  
+  # Observador para cambiar la imagen según la avenida y si se pausa
+  observeEvent({ input$avenida; input$pausar_gif_ida }, {
     req(input$avenida)
     
-    # Verifica que el valor de input$ruta exista en los nombres del vector
     if (input$avenida %in% names(ida_gif)) {
-      gif_ida(ida_gif[[input$avenida]])
+      if (input$pausar_gif_ida) {
+        imagen_ida(ida_png[[input$avenida]])
+      } else {
+        imagen_ida(ida_gif[[input$avenida]])
+      }
     }
   })
+  
+  
+  
+  output$gif_mostrar_ida<- renderUI({
+    tags$img(src = imagen_ida(), height = "350px")  # Muestra el GIF seleccionado
+  })
+  
+  # Render UI que muestra la imagen correspondiente
+  #output$gif_mostrar_ida <- renderUI({
+  #  req(imagen_ida())
+  #  tags$img(src = paste0("www/", imagen_ida()), height = "350px")
+  #})
+  
+  
+#  observeEvent(input$avenida, {
+#    req(input$avenida)
+#    
+#    if (input$avenida %in% names(vuelta_gif)) {
+#      
+#      if (input$pausar_gif_ida) {
+#        png_ida(ida_png[[input$avenida]])
+#      } else {
+#        gif_ida(ida_gif[[input$avenida]])
+#      }
+#    }
+#  })
   
   # Trayecto de Regreso Gif
   
@@ -533,9 +586,9 @@ server <- function(input, output, session) {
   #gif_ida <- reactiveVal(gif_list[1])
   #gif_vuelta <- reactiveVal(gif_list[2])
   
-  output$gif_mostrar_ida <- renderUI({
-    tags$img(src = gif_ida(), height = "350px")  # Muestra el GIF seleccionado
-  })
+ # output$gif_mostrar_ida <- renderUI({
+#    tags$img(src = gif_ida(), height = "350px")  # Muestra el GIF seleccionado
+#  })
   
   output$gif_mostrar_vuelta <- renderUI({
     tags$img(src = gif_vuelta(), height = "350px")  # Muestra el GIF seleccionado

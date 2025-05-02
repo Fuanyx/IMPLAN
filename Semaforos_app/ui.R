@@ -322,6 +322,12 @@ ui <- fluidPage(
     column(8,
            leafletOutput("mapa", width = "100%", height = "400px"),
            br(),
+           
+           checkboxInput("pausar_gif_ida", "Pausar GIF", FALSE),
+           #uiOutput("gif_mostrar_ida"),
+           br(),
+        
+           
            column(6, uiOutput("gif_mostrar_ida")),
            br(),
            column(6, uiOutput("gif_mostrar_vuelta"))
