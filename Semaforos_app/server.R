@@ -137,46 +137,11 @@ flechas2$ruta <- if_else(flechas2$nombre == "izquierda", "Regreso", "Ida")
 flechas4$ruta <- if_else(flechas4$nombre == "derecha", "Ida", "Regreso")
 
 
-
-
-# API Key de Mapbox
-key <- "pk.eyJ1IjoiZnVhbnl4IiwiYSI6ImNtOHJqajl0ZDBvdXEya3B1NDRqdGFrbWkifQ.WDEktBp9M8nUmdzf6BxdYg"
-
-### Fin de datos para el mapa nuevo ###
-
-
-### Datos de tarjetas visuales ###
-temp1  <- trayectos %>%
-  group_by(Principal,Tipo,Hora) %>%
-  mutate("Tiempo_total" = sum(`Tiempo promedio`)) %>%
-  ungroup()
-temp1$key <- paste(temp1$Principal, temp1$Hora, temp1$Tipo)
-temp1 <- temp1[!duplicated(temp1$key),]
-temp2  <- coordenadas %>%
-  group_by(Sobre) %>%
-  mutate("Distancia_total" = sum(as.numeric(str_split_fixed(distancia," ",2)[,1]))) %>%
-  ungroup()
-temp2 <- temp2[duplicated(temp2$Sobre),]
-temp1 <- temp1[,c(2,3,6,7)]
-temp2 <- temp2[,c(2,10)]
-colnames(temp2)[1] <- "Principal"
-temp2 <- temp2[!duplicated(temp2$Principal),]
-temp2$Principal <- gsub(" ","",temp2$Principal)
-tarjetas <- full_join(temp1,temp2)
-tarjetas$"Km/H" <- (tarjetas$Distancia_total/1000) / (tarjetas$Tiempo_total / 60)
-tarjetas$Distancia_total <- tarjetas$Distancia_total/1000
-#tarjetas$Tiempo_total <- tarjetas$Tiempo_total / 60
-tarjetas$Principal <- gsub("Av.Kabah","Av.Kabah",tarjetas$Principal)
-tarjetas$Principal <- gsub("Av.AndresQuintanaRoo","Av. Andres Quintana Roo",tarjetas$Principal)
-
-
-
-
 # Función para obtener el ETA desde HERE Maps
 obtener_eta <- function(origen, destino) {
   url <- paste0("https://router.hereapi.com/v8/routes?transportMode=car&origin=", origen, "&destination=", destino, "&return=summary&apikey=", API_KEY)
   respuesta <- GET(url)
-  Sys.sleep(1) # Pequeña pausa para evitar bloqueo por la API
+  Sys.sleep(.5) # Pequeña pausa para evitar bloqueo por la API
   
   if (status_code(respuesta) == 200) {
     datos <- content(respuesta, as = "parsed", type = "application/json")
@@ -189,10 +154,6 @@ obtener_eta <- function(origen, destino) {
   return(NA)
 }
 
-
-
-#rutas_inicial <- subset(coordenadas, coordenadas$Sobre == "Av.Kabah" & coordenadas$Trayecto == "Ida")
-#nuevas_rutas <- rutas_inicial %>% mutate("Tiempo" = mapply(obtener_eta, origen, destino))
 nuevas_rutas <- subset(coordenadas, coordenadas$Sobre == "Av.Kabah" & coordenadas$Trayecto == "Ida")
 nuevas_rutas$Tiempo <- 0
 nuevas_rutas$distancia <- str_split_fixed(nuevas_rutas$distancia," ",2)[,1]
@@ -212,13 +173,18 @@ ida_gif <- c("Av.Kabah" = "kabah_ida.gif","Av. Andres Quintana Roo" = "andres_id
              "Av. López Portillo" = "portillo_ida.gif", "Av. Xcaret" = "xcaret_ida.gif","Av. Cobá" = "coba_regreso.gif",
              "Av. Chac Mool" = "chacmol_ida.gif", "Av. Tulum" = "tulum_ida.gif", "Av. Nichupté" = "nichupte_ida.gif")
 
-ida_png <- c("Av.Kabah" = "kabah_ida.png")#,"Av. Andres Quintana Roo" = "andres_ida.gif", 
-             #"Av. López Portillo" = "portillo_ida.gif", "Av. Xcaret" = "xcaret_ida.gif","Av. Cobá" = "coba_regreso.gif",
-             #"Av. Chac Mool" = "chacmol_ida.gif", "Av. Tulum" = "tulum_ida.gif", "Av. Nichupté" = "nichupte_ida.gif")
+ida_png <- c("Av.Kabah" = "kabah_ida.png","Av. Andres Quintana Roo" = "andres_ida.png", 
+             "Av. López Portillo" = "portillo_ida.png", "Av. Xcaret" = "xcaret_ida.png","Av. Cobá" = "coba_regreso.png",
+             "Av. Chac Mool" = "chacmol_ida.png", "Av. Tulum" = "tulum_ida.png", "Av. Nichupté" = "nichupte_ida.png")
 
 vuelta_gif <- c("Av.Kabah" = "kabah_regreso.gif","Av. Andres Quintana Roo" = "andres_regreso.gif",
               "Av. López Portillo" = "portillo_regreso.gif","Av. Xcaret" = "xcaret_ida.gif", "Av. Cobá" = "coba_regreso.gif",
               "Av. Chac Mool" = "chacmol_regreso.gif", "Av. Tulum" = "tulum_regreso.gif", "Av. Nichupté" = "nichupte_regreso.gif")
+
+vuelta_png <- c("Av.Kabah" = "kabah_regreso.png","Av. Andres Quintana Roo" = "andres_regreso.png",
+                "Av. López Portillo" = "portillo_regreso.png","Av. Xcaret" = "xcaret_ida.png", "Av. Cobá" = "coba_regreso.png",
+                "Av. Chac Mool" = "chacmol_regreso.png", "Av. Tulum" = "tulum_regreso.png", "Av. Nichupté" = "nichupte_regreso.png")
+
 
 trayecto_gif <- c("Ida" = "Ida.gif", "Regreso" = "Regreso.gif")
 
@@ -229,7 +195,7 @@ gif_ida <- reactiveVal(ida_gif[1])
 gif_vuelta <- reactiveVal(vuelta_gif[1])
 
 png_ida <- reactiveVal(ida_png[1])
-
+png_vuelta <- reactiveVal(vuelta_png[1])
 horas_unicas <- sort(unique(datos$Hora))  
 
 
@@ -247,41 +213,13 @@ server <- function(input, output, session) {
   hora_actual <- reactiveVal(horas_unicas[1])  # Iniciar con la primera hora
   
   rutas_reactivas <- reactiveVal(nuevas_rutas)
-  print(rutas_reactivas)
 
-  
-  # Cambiar la hora automáticamente
-  #observeEvent(timer(), {
-    # Obtener el índice de la hora actual
-  #  idx <- match(hora_actual(), horas_unicas)
-    
-    # Determinar la siguiente hora (cíclica)
-  #  nueva_hora <- if (idx == length(horas_unicas)) horas_unicas[1] else horas_unicas[idx + 1]
-    
-    # Actualizar el valor reactivo
-  #  hora_actual(nueva_hora)
-  #})
-  
-  
-  
-  
-  # Filtrar datos al seleccionar la avenida
-  datos_hora <- reactive({
-    req(hora_actual)
-    list(
-      datos = filter(datos, Hora == hora_actual()),
-      tarjetas = filter(tarjetas, Hora == hora_actual() )
-    )
-  })
   
   datos_filtrados <- reactive({
     req(input$avenida)
-    df_datos <- datos_hora()$datos
-    df_tarjetas <- datos_hora()$tarjetas
     
     list(
-      df_tarjetas = filter(df_tarjetas, Principal == input$avenida ),
-      df_datos = filter(df_datos, nombre == input$avenida),
+      df_datos = filter(datos, nombre == input$avenida),
       coordenadas = filter(coordenadas, Sobre == input$avenida),
       metrica = filter(metrica, Calle == input$avenida),
       metrica2 = filter(metrica2, Calle == input$avenida)
@@ -335,7 +273,7 @@ server <- function(input, output, session) {
     
   })
   
-  
+  # Evita que se pueda seleccionar relaciones que no tienen sentido 
   observeEvent(input$avenida, {
     if (input$avenida == "Av. Xcaret") {
       updateSelectInput(inputId = "ruta",
@@ -363,23 +301,9 @@ server <- function(input, output, session) {
     }
   })
   
-  
-#  output$gif_mostrar_ida <- renderUI({
-#    req(input$avenida)
-#    
-#    if (input$avenida %in% names(ida_gif)) {
-#      
-#      if (input$pausar_gif_ida) {
-#        tags$img(src = paste0("www/", ida_png[[input$avenida]]), width = "100%")
-#      } else {
-#        gif_ida(ida_gif[[input$avenida]])
-#      }
-#    }
-#  })
-  
-  
   # Variable reactiva para almacenar el src de la imagen que se debe mostrar
   imagen_ida <- reactiveVal(ida_gif[1])
+  imagen_vuelta <- reactiveVal(vuelta_gif[1])
   
   # Observador para cambiar la imagen según la avenida y si se pausa
   observeEvent({ input$avenida; input$pausar_gif_ida }, {
@@ -395,52 +319,27 @@ server <- function(input, output, session) {
   })
   
   
-  
-  output$gif_mostrar_ida<- renderUI({
-    tags$img(src = imagen_ida(), height = "350px")  # Muestra el GIF seleccionado
-  })
-  
-  # Render UI que muestra la imagen correspondiente
-  #output$gif_mostrar_ida <- renderUI({
-  #  req(imagen_ida())
-  #  tags$img(src = paste0("www/", imagen_ida()), height = "350px")
-  #})
-  
-  
-#  observeEvent(input$avenida, {
-#    req(input$avenida)
-#    
-#    if (input$avenida %in% names(vuelta_gif)) {
-#      
-#      if (input$pausar_gif_ida) {
-#        png_ida(ida_png[[input$avenida]])
-#      } else {
-#        gif_ida(ida_gif[[input$avenida]])
-#      }
-#    }
-#  })
-  
-  # Trayecto de Regreso Gif
-  
-  observeEvent(input$avenida, {
+  # Observador para cambiar la imagen según la avenida y si se pausa
+  observeEvent({ input$avenida; input$pausar_gif_ida }, {
     req(input$avenida)
     
     if (input$avenida %in% names(vuelta_gif)) {
-      gif_vuelta(vuelta_gif[[input$avenida]])
+      if (input$pausar_gif_ida) {
+        imagen_vuelta(vuelta_png[[input$avenida]])
+      } else {
+        imagen_vuelta(vuelta_gif[[input$avenida]])
+      }
     }
   })
   
-
-
-  # Mostrar tabla con datos filtrados o calculados
-  output$tabla_resultados <- renderTable({
-    df_filtrado <- datos_sentido()$df  
-    df_calculado <- datos_actualizados()
-    df <- if (!is.null(df_calculado)) df_calculado else df_filtrado 
-    if (nrow(df) == 0) return(NULL)
-    df[, c("De", "a", "distancia", "Trayecto", "Tiempo"), drop = FALSE]
+  output$gif_mostrar_ida<- renderUI({
+    tags$img(src = imagen_ida(), height = "400px")  # Muestra el GIF seleccionado
   })
   
+  
+  output$gif_mostrar_vuelta <- renderUI({
+    tags$img(src = imagen_vuelta(), height = "400px")  # Muestra el GIF seleccionado
+  })
   
   
   output$tabla_metrica <- renderTable({
@@ -450,7 +349,6 @@ server <- function(input, output, session) {
   })
   
   
-  # Evento que se activa solo cuando el usuario presiona el botón "Generar"
   observeEvent(input$generar, {
     df <- datos_sentido()$df
     if (nrow(df) > 0) {
@@ -574,28 +472,10 @@ server <- function(input, output, session) {
           
     })
   
-  
-  # Renderizar el mapa
   output$mapa <- renderLeaflet({
     leaflet() %>%
       addTiles()
   })
-  
-# ICONO DESCARGADO
-  
-  #gif_ida <- reactiveVal(gif_list[1])
-  #gif_vuelta <- reactiveVal(gif_list[2])
-  
- # output$gif_mostrar_ida <- renderUI({
-#    tags$img(src = gif_ida(), height = "350px")  # Muestra el GIF seleccionado
-#  })
-  
-  output$gif_mostrar_vuelta <- renderUI({
-    tags$img(src = gif_vuelta(), height = "350px")  # Muestra el GIF seleccionado
-  })
-  
-  #gif_trayecto <- reactiveVal(trayecto_gif[1])
-  
   
   output$gif_trayecto_mostrar <- renderUI({
     tags$img(src = gif_trayecto(), height = "400px",)  # Muestra el GIF seleccionado
@@ -626,11 +506,6 @@ server <- function(input, output, session) {
   
   output$variacion_tiempo <- renderText({
     paste(round(datos_sentido()$metrica2$Tiempo_obj - datos_sentido()$metrica2$Tiempo,2), "min")
-  })
-  
-
-  observe({
-    print(file.exists("www/Mapa.png"))  # Debería imprimir TRUE en la consola
   })
 
 }

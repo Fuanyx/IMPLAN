@@ -315,22 +315,21 @@ ui <- fluidPage(
            column(12,
                   tags$h4("* Tiempo teórico de recorrido a velocidad reglamentaria en condiciones de flujo libre, sin interferencias vehiculares. *", style = "margin-left: 10px; display: inline-block;")
            ),
-           column(5,  # Ocupa 4 de 12 columnas disponibles
-                  actionButton("generar", "Calcular ETA"),
+
            ),
-           ),
+    
     column(8,
            leafletOutput("mapa", width = "100%", height = "400px"),
-           br(),
-           
-           checkboxInput("pausar_gif_ida", "Pausar GIF", FALSE),
-           #uiOutput("gif_mostrar_ida"),
-           br(),
         
            
            column(6, uiOutput("gif_mostrar_ida")),
-           br(),
-           column(6, uiOutput("gif_mostrar_vuelta"))
+           column(6, uiOutput("gif_mostrar_vuelta")),
+           
+           
+           column(6,checkboxInput("pausar_gif_ida", "Pausar GIF", FALSE)),
+           
+           column(5,actionButton("generar", "Calcular ETA")),
+           ),
     )
     #column(8, leafletOutput("mapa",  width = "100%", height = "400px")),
   )
@@ -380,6 +379,6 @@ ui <- fluidPage(
     #column(1, actionButton("generar", "Calcular ETA")),
     #column(1, downloadButton("descargar", "Descargar Resultados"))
     
-)
+#)
   
 
