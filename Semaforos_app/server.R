@@ -68,7 +68,8 @@ metrica2$Tiempo_obj <- as.numeric(str_split_fixed(metrica2$Distancia," ",2)[,1] 
 metrica2$`Km/H` <- paste(round(metrica2$`Km/H`, 2),"km/h")
 
 # Baches
-baches <- read_excel("./www/baches.xlsx")
+#baches <- read_excel("./www/baches.xlsx")
+baches <- dbGetQuery(con, 'SELECT * FROM "datos_trafico"."baches"')
 baches$latitud <- as.numeric(baches$latitud)
 baches$longitud <- as.numeric(baches$longitud)
 baches$label_html <- paste0(
