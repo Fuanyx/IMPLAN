@@ -69,13 +69,7 @@ metrica2$`Km/H` <- paste(round(metrica2$`Km/H`, 2),"km/h")
 
 # Baches
 #baches <- read_excel("./www/baches.xlsx")
-baches <- dbGetQuery(con, 'SELECT * FROM "datos_trafico"."baches"')
-baches$latitud <- as.numeric(baches$latitud)
-baches$longitud <- as.numeric(baches$longitud)
-baches$label_html <- paste0(
-  "Likes: ", baches$Likes, "<br/>",
-  "Último reporte ", baches$fecha_reporte, "<br/>"
-)
+
 
 
 # Baches
@@ -202,6 +196,23 @@ horas_unicas <- sort(unique(datos$Hora))
 
 server <- function(input, output, session) {
 
+  
+    
+  baches <- reactive({
+    df <- dbGetQuery(con, 'SELECT * FROM "datos_trafico"."baches"')
+    df$latitud <- as.numeric(df$latitud)
+    df$longitud <- as.numeric(df$longitud)
+    df$label_html <- paste0(
+      "Likes: ", df$Likes, "<br/>",
+      "Último reporte ", df$fecha_reporte, "<br/>"
+    )
+    df
+  })
+  
+    
+
+  
+  
   
   # Variable reactiva para almacenar los datos calculados al presionar el botón
   datos_actualizados <- reactiveVal(NULL)
@@ -422,10 +433,10 @@ server <- function(input, output, session) {
           label = ~id
         ) %>%
         addMarkers(
-          data = baches,
+          data = baches(),
           lng = ~longitud, lat = ~latitud,
           icon = icono_bache,
-          label = lapply(baches$label_html, HTML)
+          label = lapply(baches()$label_html, HTML)
         ) %>%
         addMarkers(
           data = choque,
