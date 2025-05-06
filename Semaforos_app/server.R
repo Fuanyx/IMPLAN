@@ -73,13 +73,13 @@ metrica2$`Km/H` <- paste(round(metrica2$`Km/H`, 2),"km/h")
 
 
 # Baches
-choque <- read_excel("./www/accidentes.xlsx")
-choque$latitud <- as.numeric(choque$latitud)
-choque$longitud <- as.numeric(choque$longitud)
-choque$label_html <- paste0(
-  "Likes: ", choque$Likes, "<br/>",
-  "Último reporte ", choque$fecha_reporte, "<br/>"
-)
+#choque <- read_excel("./www/accidentes.xlsx")
+#choque$latitud <- as.numeric(choque$latitud)
+#choque$longitud <- as.numeric(choque$longitud)
+#choque$label_html <- paste0(
+#  "Likes: ", choque$Likes, "<br/>",
+#  "Último reporte ", choque$fecha_reporte, "<br/>"
+#)
 
 
 datos <- read.csv("./www/puntos_interpolados2.csv")
@@ -209,7 +209,18 @@ server <- function(input, output, session) {
     df
   })
   
-    
+  
+  choque <- reactive({
+    df <- dbGetQuery(con, 'SELECT * FROM "datos_trafico"."accidentes"')
+    df$latitud <- as.numeric(df$latitud)
+    df$longitud <- as.numeric(df$longitud)
+    df$label_html <- paste0(
+      "Likes: ", df$Likes, "<br/>",
+      "Último reporte ", df$fecha_reporte, "<br/>"
+    )
+    df
+  })
+  
 
   
   
@@ -439,10 +450,10 @@ server <- function(input, output, session) {
           label = lapply(baches()$label_html, HTML)
         ) %>%
         addMarkers(
-          data = choque,
+          data = choque(),
           lng = ~longitud, lat = ~latitud,
           icon = accidente,
-          label = lapply(choque$label_html, HTML)
+          label = lapply(choque()$label_html, HTML)
         ) %>%
 
         addMarkers(
