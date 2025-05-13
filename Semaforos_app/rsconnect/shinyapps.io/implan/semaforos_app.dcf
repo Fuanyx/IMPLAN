@@ -5,7 +5,7 @@ account: implan
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 14204410
-bundleId: 10241860
+bundleId: 10276124
 url: https://implan.shinyapps.io/semaforos_app/
 version: 1
 asMultiple: FALSE

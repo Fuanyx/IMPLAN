@@ -47,7 +47,7 @@ vuelta$Tipo <- NULL
 coordenadas <- dbGetQuery(con, 'SELECT * FROM "99_Evaluaciones"."Trayectos_traslado_semaforos"')
 coordenadas$distancia <- paste(coordenadas$distancia, "m")
 coordenadas <- coordenadas[,c(1:7,9,8)]
-coordenadas$`Origen ` <- gsub(" ","",coordenadas$`Origen `)
+coordenadas$`Origen ` <- gsub(" ","",coordenadas$`Origen`)
 coordenadas$Destino <- gsub(" ","",coordenadas$Destino)
 colnames(coordenadas)[5] <- "origen"
 colnames(coordenadas)[6] <- "destino"
@@ -482,7 +482,7 @@ server <- function(input, output, session) {
       df_movimiento$color <- NULL
       df_movimiento <- left_join(df_movimiento, rutas_reactivas())
 
-          leafletProxy("mapa") %>%
+         leafletProxy("mapa") %>%
           addCircleMarkers(
             lat = df_movimiento$lat,
             lng = df_movimiento$lng,
